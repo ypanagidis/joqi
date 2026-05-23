@@ -167,15 +167,15 @@ QueryKit owns:
 Recommended package exports:
 
 ```txt
-@up/querykit
-@up/querykit/effect
-@up/querykit/drizzle
-@up/querykit/drizzle-effect
-@up/querykit/codegen
-@up/querykit/react
+@ypanagidis/querykit
+@ypanagidis/querykit/effect
+@ypanagidis/querykit/drizzle
+@ypanagidis/querykit/drizzle-effect
+@ypanagidis/querykit/codegen
+@ypanagidis/querykit/react
 ```
 
-## 5.1 `@up/querykit`
+## 5.1 `@ypanagidis/querykit`
 
 Default Promise-based API.
 
@@ -194,7 +194,7 @@ ExplainTrace
 q
 ```
 
-## 5.2 `@up/querykit/effect`
+## 5.2 `@ypanagidis/querykit/effect`
 
 Effect-native API.
 
@@ -210,7 +210,7 @@ RunDriverError
 Effect services/layers
 ```
 
-## 5.3 `@up/querykit/drizzle`
+## 5.3 `@ypanagidis/querykit/drizzle`
 
 Promise-based Drizzle adapter.
 
@@ -222,7 +222,7 @@ compileQueryPlanToDrizzle
 executeDrizzleQuery
 ```
 
-## 5.4 `@up/querykit/drizzle-effect`
+## 5.4 `@ypanagidis/querykit/drizzle-effect`
 
 Effect-native Drizzle adapter.
 
@@ -233,7 +233,7 @@ DrizzleQueryEngineLive
 makeDrizzleQueryEngine
 ```
 
-## 5.5 `@up/querykit/codegen`
+## 5.5 `@ypanagidis/querykit/codegen`
 
 Physical registry generator.
 
@@ -254,7 +254,7 @@ querykit validate
 querykit explain
 ```
 
-## 5.6 `@up/querykit/react`
+## 5.6 `@ypanagidis/querykit/react`
 
 Frontend builder helper contracts.
 
@@ -712,7 +712,7 @@ Example:
 
 ```ts
 // querykit.config.ts
-import { defineQueryKitConfig } from "@up/querykit/codegen";
+import { defineQueryKitConfig } from "@ypanagidis/querykit/codegen";
 
 export default defineQueryKitConfig({
   schema: "./src/db/schema.ts",
@@ -1356,8 +1356,8 @@ End-to-end with seed data.
 Build:
 
 ```txt
-@up/querykit
-@up/querykit/effect
+@ypanagidis/querykit
+@ypanagidis/querykit/effect
 ```
 
 Include:
@@ -1380,8 +1380,8 @@ Include:
 Build:
 
 ```txt
-@up/querykit/drizzle
-@up/querykit/drizzle-effect
+@ypanagidis/querykit/drizzle
+@ypanagidis/querykit/drizzle-effect
 ```
 
 Support:
@@ -1406,7 +1406,7 @@ Do not start with every SQL feature.
 Build:
 
 ```txt
-@up/querykit/codegen
+@ypanagidis/querykit/codegen
 ```
 
 Support:

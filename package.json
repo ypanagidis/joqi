@@ -1,35 +1,22 @@
 {
-  "name": "@up/querykit",
-  "version": "0.0.0",
-  "description": "Driver-based dynamic query runtime for trusted business-owned JSON specs.",
+  "name": "querykit-monorepo",
+  "version": "0.0.1-alpha.0",
+  "private": true,
+  "description": "Monorepo for QueryKit packages, apps, and examples.",
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
   "type": "module",
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./effect": {
-      "types": "./dist/effect.d.ts",
-      "import": "./dist/effect.js"
-    }
-  },
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "format": "oxfmt -c oxfmt.config.ts 'src/**/*.ts' 'test/**/*.ts' '*.json' '*.ts' '*.yaml'",
-    "format:check": "oxfmt -c oxfmt.config.ts --check 'src/**/*.ts' 'test/**/*.ts' '*.json' '*.ts' '*.yaml'",
+    "build": "pnpm --filter @ypanagidis/querykit build",
+    "dev": "pnpm --filter @ypanagidis/querykit dev",
+    "format": "oxfmt -c oxfmt.config.ts 'apps/**/*.ts' 'examples/**/*.ts' 'packages/**/*.ts' '*.json' '*.ts' '*.yaml' 'apps/**/*.json' 'examples/**/*.json' 'packages/**/*.json'",
+    "format:check": "oxfmt -c oxfmt.config.ts --check 'apps/**/*.ts' 'examples/**/*.ts' 'packages/**/*.ts' '*.json' '*.ts' '*.yaml' 'apps/**/*.json' 'examples/**/*.json' 'packages/**/*.json'",
     "lint": "oxlint -c oxlint.config.ts --type-aware",
     "lint:fix": "oxlint -c oxlint.config.ts --type-aware --fix",
-    "test": "vitest run",
-    "typecheck": "tsgo --noEmit"
-  },
-  "dependencies": {
-    "effect": "^3.17.0"
+    "pack:querykit": "pnpm --filter @ypanagidis/querykit pack",
+    "publish:alpha": "pnpm --filter @ypanagidis/querykit publish --tag alpha",
+    "publish:latest": "pnpm --filter @ypanagidis/querykit publish --tag latest",
+    "test": "pnpm --filter @ypanagidis/querykit test",
+    "typecheck": "pnpm --filter @ypanagidis/querykit typecheck"
   },
   "devDependencies": {
     "@typescript/native-preview": "7.0.0-dev.20260523.1",

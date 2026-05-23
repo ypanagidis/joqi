@@ -1,0 +1,34 @@
+{
+  "name": "@ypanagidis/querykit",
+  "version": "0.0.1-alpha.0",
+  "description": "Driver-based dynamic query runtime for trusted business-owned JSON specs.",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./effect": {
+      "types": "./dist/effect.d.ts",
+      "import": "./dist/effect.js"
+    }
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "effect": "^3.17.0"
+  }
+}

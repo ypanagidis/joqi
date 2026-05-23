@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      effect:
-        specifier: ^3.17.0
-        version: 3.21.2
     devDependencies:
       '@typescript/native-preview':
         specifier: 7.0.0-dev.20260523.1
@@ -33,6 +29,22 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(jiti@2.7.0)
+
+  apps/docs: {}
+
+  apps/marketing: {}
+
+  examples/basic:
+    dependencies:
+      '@ypanagidis/querykit':
+        specifier: workspace:*
+        version: link:../../packages/querykit
+
+  packages/querykit:
+    dependencies:
+      effect:
+        specifier: ^3.17.0
+        version: 3.21.2
 
 packages:
 

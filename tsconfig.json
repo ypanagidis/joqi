@@ -12,6 +12,5 @@
     "sourceMap": true,
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
-  },
-  "include": ["src", "test", "tsdown.config.ts", "vitest.config.ts"]
+  }
 }

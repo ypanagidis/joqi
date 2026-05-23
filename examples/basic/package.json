@@ -1,0 +1,8 @@
+{
+  "name": "@querykit/example-basic",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ypanagidis/querykit": "workspace:*"
+  }
+}
