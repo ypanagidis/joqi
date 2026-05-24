@@ -2,15 +2,15 @@ import { Effect, Schema } from "effect";
 import type * as Either from "effect/Either";
 import { ZodError } from "zod";
 
-import { QuerySpecSchema } from "./query.js";
-import type { QueryFilter, QuerySpec } from "./query.js";
-import { ResolvedRegistrySchema } from "./registry.js";
+import { QuerySpecSchema } from "../specs/query.js";
+import type { QueryFilter, QuerySpec } from "../specs/query.js";
+import { ResolvedRegistrySchema } from "../specs/registries.js";
 import type {
   ResolvedField,
   ResolvedRegistry,
   ResolvedRelation,
   ResolvedSource,
-} from "./registry.js";
+} from "../specs/registries.js";
 
 export type ValidateQuerySpecInput = {
   readonly query: unknown;

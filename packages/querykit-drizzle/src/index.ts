@@ -139,6 +139,10 @@ export const createPhysicalRegistryFromDrizzleRelations = (
 };
 
 export const sqlPlanToDrizzleSQL = (plan: SQLPlan): SQL => {
+  if (plan.dialect === "postgres") {
+    return postgresSQLPlanToDrizzleSQL(plan);
+  }
+
   const textParts = plan.sql.split("?");
 
   if (textParts.length - 1 !== plan.params.length) {
@@ -154,6 +158,40 @@ export const sqlPlanToDrizzleSQL = (plan: SQLPlan): SQL => {
       return [sql.raw(textPart), sql.param(plan.params[index])];
     }),
   );
+};
+
+const postgresSQLPlanToDrizzleSQL = (plan: SQLPlan): SQL => {
+  const chunks: Parameters<typeof sql.join>[0] = [];
+  const placeholders = plan.sql.matchAll(/\$(\d+)/g);
+  let lastIndex = 0;
+  let expectedParamIndex = 1;
+
+  for (const placeholder of placeholders) {
+    const placeholderIndex = Number(placeholder[1]);
+
+    if (placeholderIndex !== expectedParamIndex) {
+      throw new Error("SQLPlan placeholder count does not match params count");
+    }
+
+    const param = plan.params[expectedParamIndex - 1];
+
+    if (param === undefined) {
+      throw new Error("SQLPlan placeholder count does not match params count");
+    }
+
+    chunks.push(sql.raw(plan.sql.slice(lastIndex, placeholder.index)));
+    chunks.push(sql.param(param));
+    lastIndex = placeholder.index + placeholder[0].length;
+    expectedParamIndex += 1;
+  }
+
+  if (expectedParamIndex - 1 !== plan.params.length) {
+    throw new Error("SQLPlan placeholder count does not match params count");
+  }
+
+  chunks.push(sql.raw(plan.sql.slice(lastIndex)));
+
+  return sql.join(chunks);
 };
 
 const toPhysicalRelation = (

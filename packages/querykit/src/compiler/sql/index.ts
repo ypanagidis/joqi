@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import type * as Either from "effect/Either";
 
-import type { JsonValue, QueryFilterOperator } from "./query.js";
 import {
   lowerQuerySpecToIREffect,
   type LowerQuerySpecError,
@@ -9,17 +8,19 @@ import {
   type QueryIR,
   type QueryIRFieldRef,
   type QueryIRFilter,
-} from "./lower-query.js";
+} from "../../query/lower.js";
+import type { JsonValue, QueryFilterOperator } from "../../specs/query.js";
+import { mysqlDialectCompiler } from "./dialects/mysql.js";
+import { postgresDialectCompiler } from "./dialects/postgres.js";
+import type { SQLDialect, SQLDialectCompiler, SQLPlan } from "./types.js";
 
-export type CompileQuerySpecToSQLInput = LowerQuerySpecInput;
+export type { SQLDialect, SQLPlan } from "./types.js";
+
+export type CompileQuerySpecToSQLInput = LowerQuerySpecInput & {
+  readonly dialect?: SQLDialect;
+};
 
 export type CompileQuerySpecToSQLError = LowerQuerySpecError;
-
-export type SQLPlan = {
-  readonly dialect: "mysql";
-  readonly sql: string;
-  readonly params: readonly JsonValue[];
-};
 
 export const compileQuerySpecToSQLEffect: (
   input: CompileQuerySpecToSQLInput,
@@ -27,7 +28,7 @@ export const compileQuerySpecToSQLEffect: (
   function* (input: CompileQuerySpecToSQLInput) {
     const ir = yield* lowerQuerySpecToIREffect(input);
 
-    return compileIRToMySQL(ir);
+    return compileIRToSQL(ir, dialectCompilerFor(input.dialect ?? "mysql"));
   },
 );
 
@@ -44,9 +45,17 @@ export const compileQuerySpecToSQLPromise = async (
   );
 
 type SQLCompileContext = {
+  readonly compiler: SQLDialectCompiler;
   readonly params: JsonValue[];
   readonly aliasesByPath: Map<string, string>;
 };
+
+const dialectCompilers = {
+  mysql: mysqlDialectCompiler,
+  postgres: postgresDialectCompiler,
+} satisfies Record<SQLDialect, SQLDialectCompiler>;
+
+const dialectCompilerFor = (dialect: SQLDialect): SQLDialectCompiler => dialectCompilers[dialect];
 
 const unwrapCompileQuerySpecToSQLResult = (
   result: Either.Either<SQLPlan, CompileQuerySpecToSQLError>,
@@ -58,8 +67,9 @@ const unwrapCompileQuerySpecToSQLResult = (
   return result.right;
 };
 
-const compileIRToMySQL = (ir: QueryIR): SQLPlan => {
+const compileIRToSQL = (ir: QueryIR, compiler: SQLDialectCompiler): SQLPlan => {
   const context: SQLCompileContext = {
+    compiler,
     params: [],
     aliasesByPath: new Map([["", "t0"]]),
   };
@@ -70,20 +80,22 @@ const compileIRToMySQL = (ir: QueryIR): SQLPlan => {
 
   const sqlParts = [
     compileSelect(ir, context),
-    `from ${quoteIdentifier(ir.source.physicalSource)} as ${quoteIdentifier("t0")}`,
+    `from ${quoteIdentifier(context, ir.source.physicalSource)} as ${quoteIdentifier(context, "t0")}`,
     ...ir.joins.map((join) => {
       const fromAlias = aliasForPath(context, parentPath(join.path));
       const toAlias = aliasForPath(context, join.path);
       const on = join.localFields
         .map(
           (localField, index) =>
-            `${quoteIdentifier(fromAlias)}.${quoteIdentifier(localField)} = ${quoteIdentifier(
+            `${quoteIdentifier(context, fromAlias)}.${quoteIdentifier(context, localField)} = ${quoteIdentifier(
+              context,
               toAlias,
-            )}.${quoteIdentifier(join.foreignFields[index]!)}`,
+            )}.${quoteIdentifier(context, join.foreignFields[index]!)}`,
         )
         .join(" and ");
 
-      return `left join ${quoteIdentifier(join.to.physicalSource)} as ${quoteIdentifier(
+      return `left join ${quoteIdentifier(context, join.to.physicalSource)} as ${quoteIdentifier(
+        context,
         toAlias,
       )} on ${on}`;
     }),
@@ -103,7 +115,7 @@ const compileIRToMySQL = (ir: QueryIR): SQLPlan => {
   ];
 
   return {
-    dialect: "mysql",
+    dialect: compiler.dialect,
     sql: sqlParts.join("\n"),
     params: context.params,
   };
@@ -111,7 +123,7 @@ const compileIRToMySQL = (ir: QueryIR): SQLPlan => {
 
 const compileSelect = (ir: QueryIR, context: SQLCompileContext): string =>
   `select ${ir.select
-    .map((field) => `${compileFieldRef(context, field)} as ${quoteIdentifier(field.path)}`)
+    .map((field) => `${compileFieldRef(context, field)} as ${quoteIdentifier(context, field.path)}`)
     .join(", ")}`;
 
 const compileFilter = (context: SQLCompileContext, filter: QueryIRFilter): string => {
@@ -159,17 +171,17 @@ const compilePredicate = (
       return `${fieldRef} like ${addParam(
         context,
         `%${escapeLikePattern(stringValue(value))}%`,
-      )} escape '\\\\'`;
+      )}${context.compiler.likeEscapeSql}`;
     case "startsWith":
       return `${fieldRef} like ${addParam(
         context,
         `${escapeLikePattern(stringValue(value))}%`,
-      )} escape '\\\\'`;
+      )}${context.compiler.likeEscapeSql}`;
     case "endsWith":
       return `${fieldRef} like ${addParam(
         context,
         `%${escapeLikePattern(stringValue(value))}`,
-      )} escape '\\\\'`;
+      )}${context.compiler.likeEscapeSql}`;
     case "isNull":
       return `${fieldRef} is null`;
     case "isNotNull":
@@ -189,12 +201,12 @@ const compileFieldRef = (context: SQLCompileContext, field: QueryIRFieldRef): st
   const fieldRelationPath = parentPath(field.path);
   const alias = aliasForPath(context, fieldRelationPath);
 
-  return `${quoteIdentifier(alias)}.${quoteIdentifier(field.field.physicalField)}`;
+  return `${quoteIdentifier(context, alias)}.${quoteIdentifier(context, field.field.physicalField)}`;
 };
 
 const addParam = (context: SQLCompileContext, value: JsonValue): string => {
   context.params.push(value);
-  return "?";
+  return context.compiler.placeholder(context.params.length);
 };
 
 const aliasForPath = (context: SQLCompileContext, path: string): string =>
@@ -207,7 +219,8 @@ const parentPath = (path: string): string => {
   return parts.join(".");
 };
 
-const quoteIdentifier = (identifier: string): string => `\`${identifier.replaceAll("`", "``")}\``;
+const quoteIdentifier = (context: SQLCompileContext, identifier: string): string =>
+  context.compiler.quoteIdentifier(identifier);
 
 const stringValue = (value: JsonValue | undefined): string => {
   if (value === undefined || value === null) {

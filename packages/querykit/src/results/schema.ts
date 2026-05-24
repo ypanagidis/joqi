@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { JsonValueSchema } from "./query.js";
-import type { QueryIR, QueryIRFieldRef } from "./lower-query.js";
-import type { FieldType } from "./registry.js";
+import type { QueryIR, QueryIRFieldRef } from "../query/lower.js";
+import { JsonValueSchema } from "../specs/query.js";
+import type { FieldType } from "../specs/registries.js";
 
 export type QueryResultRow = Record<string, unknown>;
 export type QueryResultRows = readonly QueryResultRow[];

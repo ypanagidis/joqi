@@ -1,14 +1,24 @@
 import { Effect } from "effect";
 import type * as Either from "effect/Either";
 
-import type { JsonValue, QueryFilter, QueryFilterOperator, QuerySortDirection } from "./query.js";
-import { ResolvedRegistrySchema } from "./registry.js";
-import type { FieldType, RelationKind, ResolvedRegistry, ResolvedSource } from "./registry.js";
+import type {
+  JsonValue,
+  QueryFilter,
+  QueryFilterOperator,
+  QuerySortDirection,
+} from "../specs/query.js";
+import { ResolvedRegistrySchema } from "../specs/registries.js";
+import type {
+  FieldType,
+  RelationKind,
+  ResolvedRegistry,
+  ResolvedSource,
+} from "../specs/registries.js";
 import {
   validateQuerySpecEffect,
   type ValidateQuerySpecError,
   type ValidateQuerySpecInput,
-} from "./validate-query.js";
+} from "./validate.js";
 
 export type LowerQuerySpecInput = ValidateQuerySpecInput;
 

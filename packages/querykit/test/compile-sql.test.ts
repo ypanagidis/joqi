@@ -46,6 +46,44 @@ describe("compileQuerySpecToSQL", () => {
     });
   });
 
+  it("compiles a query with a relation path to a PostgreSQL SQL plan", () => {
+    const plan = compileQuerySpecToSQL({
+      dialect: "postgres",
+      query: {
+        version: "v1",
+        source: "placement",
+        select: ["name", "budget", "campaign.name"],
+        where: {
+          and: [
+            { field: "budget", op: "gte", value: 10000 },
+            { field: "campaign.name", op: "contains", value: "spring" },
+          ],
+        },
+        orderBy: [
+          { field: "budget", direction: "desc" },
+          { field: "campaign.name", direction: "asc" },
+        ],
+        limit: 25,
+        offset: 10,
+      },
+      registry: makeRegistry(),
+    });
+
+    expect(plan).toEqual({
+      dialect: "postgres",
+      sql: [
+        'select "t0"."name" as "name", "t0"."budgetCents" as "budget", "t1"."name" as "campaign.name"',
+        'from "placements" as "t0"',
+        'left join "campaigns" as "t1" on "t0"."campaignId" = "t1"."id"',
+        'where ("t0"."budgetCents" >= $1) and ("t1"."name" like $2 escape \'\\\')',
+        'order by "t0"."budgetCents" desc, "t1"."name" asc',
+        "limit $3",
+        "offset $4",
+      ].join("\n"),
+      params: [10000, "%spring%", 25, 10],
+    });
+  });
+
   it("compiles supported predicate operators with params", () => {
     const plan = compileQuerySpecToSQL({
       query: {

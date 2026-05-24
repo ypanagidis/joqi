@@ -73,14 +73,14 @@ Currently implemented:
 - Registry-aware query validation
 - Derived join planning from public dotted field paths
 - Adapter-neutral `QueryIR`
-- MySQL `SQLPlan` compilation with bound params
+- MySQL and PostgreSQL `SQLPlan` compilation with bound params
 - Drizzle adapter package for registry creation and SQLPlan execution
 - Docker-backed sandbox example
 
 Not implemented yet:
 
 - Prisma adapter package
-- PostgreSQL and SQLite SQL dialects
+- SQLite SQL dialect
 - Aggregation execution semantics
 - Forensic/explain output
 
@@ -283,15 +283,16 @@ const ir = lowerQuerySpecToIR({
 const sqlPlan = compileQuerySpecToSQL({
   query: validatedQuery,
   registry,
+  dialect: "postgres",
 });
 ```
 
-Example `SQLPlan` output for MySQL:
+Omit `dialect` to use MySQL. Example `SQLPlan` output for PostgreSQL:
 
 ```ts
 {
-  dialect: "mysql",
-  sql: "select `t0`.`name` as `name`, `t0`.`status` as `status`, `t0`.`budgetCents` as `budget`, `t1`.`name` as `campaign.name`\nfrom `placements` as `t0`\nleft join `campaigns` as `t1` on `t0`.`campaignId` = `t1`.`id`\nwhere (`t0`.`status` = ?) and (`t0`.`budgetCents` >= ?) and (`t1`.`name` like ? escape '\\')\norder by `t0`.`budgetCents` desc\nlimit ?",
+  dialect: "postgres",
+  sql: "select \"t0\".\"name\" as \"name\", \"t0\".\"status\" as \"status\", \"t0\".\"budgetCents\" as \"budget\", \"t1\".\"name\" as \"campaign.name\"\nfrom \"placements\" as \"t0\"\nleft join \"campaigns\" as \"t1\" on \"t0\".\"campaignId\" = \"t1\".\"id\"\nwhere (\"t0\".\"status\" = $1) and (\"t0\".\"budgetCents\" >= $2) and (\"t1\".\"name\" like $3 escape '\\')\norder by \"t0\".\"budgetCents\" desc\nlimit $4",
   params: ["active", 10000, "%spring%", 25]
 }
 ```
@@ -531,11 +532,13 @@ This allows different users, tenants, roles, or feature flags to see different q
 
 ## SQLPlan
 
-The current SQL compiler targets MySQL.
+The current SQL compiler targets MySQL and PostgreSQL.
 
 ```ts
+type SQLDialect = "mysql" | "postgres";
+
 type SQLPlan = {
-  dialect: "mysql";
+  dialect: SQLDialect;
   sql: string;
   params: readonly JsonValue[];
 };
@@ -543,10 +546,12 @@ type SQLPlan = {
 
 Safety rules:
 
-- Identifiers are quoted with MySQL backticks.
+- MySQL identifiers are quoted with backticks.
+- PostgreSQL identifiers are quoted with double quotes.
 - Identifiers come from the resolved registry, not from user values.
-- Values are emitted as `?` placeholders.
-- `contains`, `startsWith`, and `endsWith` escape MySQL `LIKE` wildcards in user input.
+- MySQL values are emitted as `?` placeholders.
+- PostgreSQL values are emitted as `$1`, `$2`, ... placeholders.
+- `contains`, `startsWith`, and `endsWith` escape `LIKE` wildcards in user input.
 - Relation joins use physical join keys from `ResolvedRelation`.
 
 The `SQLPlan` is not executed by core QueryKit. Adapter packages execute it through raw SQL APIs, for example Drizzle, Prisma, Kysely, or a direct MySQL client.
@@ -638,7 +643,7 @@ Near-term:
 
 - Add a Prisma raw SQL execution adapter
 - Decide how mandatory host constraints are represented
-- Add PostgreSQL and SQLite SQL dialects
+- Add SQLite SQL dialect
 - Add better explain output for rejected queries and generated joins
 
 Later:

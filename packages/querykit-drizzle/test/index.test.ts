@@ -101,6 +101,15 @@ describe("Drizzle SQLPlan execution", () => {
     });
   });
 
+  it("converts PostgreSQL SQLPlan placeholders into Drizzle params", () => {
+    const query = sqlPlanToDrizzleSQL(makePostgresPlan()).toQuery(postgresQueryConfig);
+
+    expect(query).toEqual({
+      sql: 'select "t0"."name" from "placements" as "t0" where "t0"."status" = $1 limit $2',
+      params: ["active", 25],
+    });
+  });
+
   it("executes SQLPlan through a Drizzle-compatible db", async () => {
     const rows = [{ name: "Spring Placement" }];
     const execute = vi.fn(async (query: SQL) => ({
@@ -152,6 +161,16 @@ describe("Drizzle SQLPlan execution", () => {
     ).toThrow("SQLPlan placeholder count does not match params count");
   });
 
+  it("rejects malformed PostgreSQL SQLPlan placeholders", () => {
+    expect(() =>
+      sqlPlanToDrizzleSQL({
+        dialect: "postgres",
+        sql: "select $2",
+        params: ["one"],
+      }),
+    ).toThrow("SQLPlan placeholder count does not match params count");
+  });
+
   it("exports the execution error class", () => {
     expect(new DrizzleExecutionError({ sql: "select 1", cause: "boom" })).toBeInstanceOf(Error);
   });
@@ -163,9 +182,21 @@ const makePlan = (): SQLPlan => ({
   params: ["active", 25],
 });
 
+const makePostgresPlan = (): SQLPlan => ({
+  dialect: "postgres",
+  sql: 'select "t0"."name" from "placements" as "t0" where "t0"."status" = $1 limit $2',
+  params: ["active", 25],
+});
+
 const mysqlQueryConfig: BuildQueryConfig = {
   escapeName: (name) => `\`${name.replaceAll("`", "``")}\``,
   escapeParam: () => "?",
+  escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
+};
+
+const postgresQueryConfig: BuildQueryConfig = {
+  escapeName: (name) => `"${name.replaceAll('"', '""')}"`,
+  escapeParam: (index) => `$${index + 1}`,
   escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
 };
 

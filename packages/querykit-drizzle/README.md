@@ -49,7 +49,7 @@ const rows = await executeSQLPlanWithDrizzle({
 });
 ```
 
-The adapter converts `?` placeholders in the QueryKit `SQLPlan` into Drizzle params using `sql.param(...)`, then calls `db.execute(...)`.
+The adapter converts MySQL `?` placeholders and PostgreSQL `$1`, `$2`, ... placeholders in the QueryKit `SQLPlan` into Drizzle params using `sql.param(...)`, then calls `db.execute(...)`.
 
 ## API
 

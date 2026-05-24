@@ -143,19 +143,21 @@ type QueryIR = {
 };
 ```
 
-The MySQL SQL compiler returns raw SQL plus bound params:
+The SQL compiler returns raw SQL plus bound params. It defaults to MySQL and can also emit PostgreSQL SQL:
 
 ```ts
 import { compileQuerySpecToSQLEffect } from "@ypanagidis/querykit/effect";
 
 const sqlPlan = await Effect.runPromise(
-  compileQuerySpecToSQLEffect({ query, registry: resolved }),
+  compileQuerySpecToSQLEffect({ query, registry: resolved, dialect: "postgres" }),
 );
 ```
 
 ```ts
+type SQLDialect = "mysql" | "postgres";
+
 type SQLPlan = {
-  dialect: "mysql";
+  dialect: SQLDialect;
   sql: string;
   params: readonly JsonValue[];
 };

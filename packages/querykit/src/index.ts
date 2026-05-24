@@ -10,7 +10,7 @@ export {
   QuerySpecSchema,
   QueryVersionSchema,
   safeParseQuerySpec,
-} from "./query.js";
+} from "./specs/query.js";
 export type {
   JsonValue,
   QueryFilter,
@@ -18,7 +18,7 @@ export type {
   QueryOrderBy,
   QuerySortDirection,
   QuerySpec,
-} from "./query.js";
+} from "./specs/query.js";
 
 export {
   AdapterMetaSchema,
@@ -52,7 +52,7 @@ export {
   safeParseResolvedRegistry,
   SourceDefaultsSchema,
   SourcePolicySchema,
-} from "./registry.js";
+} from "./specs/registries.js";
 export type {
   Aggregation,
   FieldPolicy,
@@ -73,7 +73,7 @@ export type {
   ResolvedRelation,
   ResolvedSource,
   SourcePolicy,
-} from "./registry.js";
+} from "./specs/registries.js";
 
 export {
   RegistryParseError,
@@ -82,12 +82,12 @@ export {
   resolveRegistry,
   resolveRegistryEffect,
   resolveRegistryPromise,
-} from "./resolve-registry.js";
+} from "./registry/resolve.js";
 export type {
   RegistryResolutionIssue,
   ResolveRegistryError,
   ResolveRegistryInput,
-} from "./resolve-registry.js";
+} from "./registry/resolve.js";
 
 export {
   QueryParseError,
@@ -96,18 +96,18 @@ export {
   validateQuerySpec,
   validateQuerySpecEffect,
   validateQuerySpecPromise,
-} from "./validate-query.js";
+} from "./query/validate.js";
 export type {
   QueryValidationIssue,
   ValidateQuerySpecError,
   ValidateQuerySpecInput,
-} from "./validate-query.js";
+} from "./query/validate.js";
 
 export {
   lowerQuerySpecToIR,
   lowerQuerySpecToIREffect,
   lowerQuerySpecToIRPromise,
-} from "./lower-query.js";
+} from "./query/lower.js";
 export type {
   LowerQuerySpecError,
   LowerQuerySpecInput,
@@ -117,23 +117,24 @@ export type {
   QueryIRJoin,
   QueryIROrderBy,
   QueryIRSourceRef,
-} from "./lower-query.js";
+} from "./query/lower.js";
 
 export {
   compileQuerySpecToSQL,
   compileQuerySpecToSQLEffect,
   compileQuerySpecToSQLPromise,
-} from "./compile-sql.js";
+} from "./compiler/sql/index.js";
 export type {
   CompileQuerySpecToSQLError,
   CompileQuerySpecToSQLInput,
+  SQLDialect,
   SQLPlan,
-} from "./compile-sql.js";
+} from "./compiler/sql/index.js";
 
 export {
   buildQueryIRResultSchema,
   buildQueryIRRowSchema,
   parseQueryIRResultRows,
   safeParseQueryIRResultRows,
-} from "./result-schema.js";
-export type { QueryResultRow, QueryResultRows } from "./result-schema.js";
+} from "./results/schema.js";
+export type { QueryResultRow, QueryResultRows } from "./results/schema.js";

@@ -2,13 +2,13 @@ import { Effect, Schema } from "effect";
 import type * as Either from "effect/Either";
 import { ZodError } from "zod";
 
-import type { QueryFilterOperator } from "./query.js";
+import type { QueryFilterOperator } from "../specs/query.js";
 import {
   PhysicalRegistrySchema,
   RegistryDefaultsSchema,
   RegistryPolicySchema,
   ResolvedRegistrySchema,
-} from "./registry.js";
+} from "../specs/registries.js";
 import type {
   FieldPolicy,
   FieldType,
@@ -21,7 +21,7 @@ import type {
   ResolvedRelation,
   ResolvedSource,
   SourcePolicy,
-} from "./registry.js";
+} from "../specs/registries.js";
 
 export type ResolveRegistryInput = {
   physical: unknown;
