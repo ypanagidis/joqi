@@ -200,6 +200,44 @@ describe("validateQuerySpec", () => {
     ]);
   });
 
+  it("validates bound params against resolved field types", () => {
+    const error = captureQueryValidationError(() =>
+      validateQuerySpec({
+        query: {
+          version: "v1",
+          source: "placement",
+          select: ["name"],
+          where: {
+            and: [
+              { field: "budget", op: "gte", value: { $param: "minBudget" } },
+              { field: "status", op: "in", value: { $param: "statuses" } },
+            ],
+          },
+        },
+        params: {
+          minBudget: "10000",
+          statuses: ["active", 123],
+        },
+        registry: makeRegistry(),
+      }),
+    );
+
+    expect(error.issues).toEqual([
+      {
+        code: "invalid_param_value",
+        param: "minBudget",
+        path: "budget.value",
+        expected: "number",
+      },
+      {
+        code: "invalid_param_value",
+        param: "statuses",
+        path: "status.value",
+        expected: "array of string",
+      },
+    ]);
+  });
+
   it("reports relation filter capability and depth failures", () => {
     const error = captureQueryValidationError(() =>
       validateQuerySpec({

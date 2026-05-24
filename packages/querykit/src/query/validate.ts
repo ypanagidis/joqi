@@ -14,6 +14,7 @@ import type {
 } from "../specs/query.js";
 import { ResolvedRegistrySchema } from "../specs/registries.js";
 import type {
+  FieldType,
   ResolvedField,
   ResolvedRegistry,
   ResolvedRelation,
@@ -41,6 +42,26 @@ export type BoundQueryFilter =
 
 export type ValidatedQuerySpec = Omit<QuerySpec, "where" | "limit" | "offset"> & {
   readonly where?: BoundQueryFilter | undefined;
+  readonly limit?: number | undefined;
+  readonly offset?: number | undefined;
+};
+
+type BoundQueryFilterWithParamSource =
+  | {
+      readonly and: readonly BoundQueryFilterWithParamSource[];
+    }
+  | {
+      readonly or: readonly BoundQueryFilterWithParamSource[];
+    }
+  | {
+      readonly field: string;
+      readonly op: QueryFilterOperator;
+      readonly value?: JsonValue | undefined;
+      readonly valueParam?: string | undefined;
+    };
+
+type ValidatedQuerySpecWithParamSource = Omit<QuerySpec, "where" | "limit" | "offset"> & {
+  readonly where?: BoundQueryFilterWithParamSource | undefined;
   readonly limit?: number | undefined;
   readonly offset?: number | undefined;
 };
@@ -211,7 +232,7 @@ export const validateQuerySpecEffect: (
       return yield* new QueryValidationError({ issues });
     }
 
-    return query;
+    return stripQueryParamSources(query);
   },
 );
 
@@ -250,11 +271,38 @@ const unwrapValidateQuerySpecResult = (
   return result.right;
 };
 
+const stripQueryParamSources = (query: ValidatedQuerySpecWithParamSource): ValidatedQuerySpec => ({
+  version: query.version,
+  source: query.source,
+  select: query.select,
+  ...(query.groupBy === undefined ? {} : { groupBy: query.groupBy }),
+  ...(query.orderBy === undefined ? {} : { orderBy: query.orderBy }),
+  ...(query.where === undefined ? {} : { where: stripFilterParamSources(query.where) }),
+  ...(query.limit === undefined ? {} : { limit: query.limit }),
+  ...(query.offset === undefined ? {} : { offset: query.offset }),
+});
+
+const stripFilterParamSources = (filter: BoundQueryFilterWithParamSource): BoundQueryFilter => {
+  if ("and" in filter) {
+    return { and: filter.and.map(stripFilterParamSources) };
+  }
+
+  if ("or" in filter) {
+    return { or: filter.or.map(stripFilterParamSources) };
+  }
+
+  return {
+    field: filter.field,
+    op: filter.op,
+    ...(filter.value === undefined ? {} : { value: filter.value }),
+  };
+};
+
 const bindQueryParams = (input: {
   readonly query: QuerySpec;
   readonly params: QueryParams;
   readonly issues: QueryValidationIssue[];
-}): ValidatedQuerySpec => ({
+}): ValidatedQuerySpecWithParamSource => ({
   version: input.query.version,
   source: input.query.source,
   select: input.query.select,
@@ -277,7 +325,7 @@ const bindFilterParams = (input: {
   readonly issues: QueryValidationIssue[];
   readonly filter: QueryFilter;
   readonly path: string;
-}): BoundQueryFilter => {
+}): BoundQueryFilterWithParamSource => {
   if ("and" in input.filter) {
     return {
       and: input.filter.and.map((filter, index) =>
@@ -326,6 +374,7 @@ const bindFilterParams = (input: {
     field: input.filter.field,
     op: input.filter.op,
     value,
+    ...(isQueryParamRef(input.filter.value) ? { valueParam: input.filter.value.$param } : {}),
   };
 };
 
@@ -400,7 +449,7 @@ const isQueryParamRef = (value: unknown): value is QueryParamRef =>
   typeof (value as { readonly $param?: unknown }).$param === "string";
 
 const validateLimit = (
-  query: ValidatedQuerySpec,
+  query: ValidatedQuerySpecWithParamSource,
   source: ResolvedSource,
   issues: QueryValidationIssue[],
 ) => {
@@ -417,7 +466,7 @@ const validateLimit = (
 const validateFilter = (input: {
   registry: ResolvedRegistry;
   source: ResolvedSource;
-  filter: BoundQueryFilter;
+  filter: BoundQueryFilterWithParamSource;
   issues: QueryValidationIssue[];
 }) => {
   if ("and" in input.filter) {
@@ -456,6 +505,86 @@ const validateFilter = (input: {
       operator: input.filter.op,
       allowedOperators: result.field.operators,
     });
+  }
+
+  validateFilterParamValue({ filter: input.filter, field: result.field, issues: input.issues });
+};
+
+const validateFilterParamValue = (input: {
+  readonly filter: Extract<BoundQueryFilterWithParamSource, { readonly field: string }>;
+  readonly field: ResolvedField;
+  readonly issues: QueryValidationIssue[];
+}) => {
+  if (input.filter.valueParam === undefined || input.filter.value === undefined) {
+    return;
+  }
+
+  if (input.filter.op === "isNull" || input.filter.op === "isNotNull") {
+    return;
+  }
+
+  if (input.filter.op === "in") {
+    if (!Array.isArray(input.filter.value) || input.filter.value.length === 0) {
+      return;
+    }
+
+    if (input.filter.value.some((value) => !isValueForFieldType(value, input.field.type))) {
+      input.issues.push({
+        code: "invalid_param_value",
+        param: input.filter.valueParam,
+        path: `${input.filter.field}.value`,
+        expected: `array of ${fieldTypeExpectation(input.field.type)}`,
+      });
+    }
+
+    return;
+  }
+
+  if (!isValueForFieldType(input.filter.value, input.field.type)) {
+    input.issues.push({
+      code: "invalid_param_value",
+      param: input.filter.valueParam,
+      path: `${input.filter.field}.value`,
+      expected: fieldTypeExpectation(input.field.type),
+    });
+  }
+};
+
+const isValueForFieldType = (value: JsonValue, type: FieldType): boolean => {
+  if (value === null) {
+    return true;
+  }
+
+  switch (type) {
+    case "number":
+      return typeof value === "number";
+    case "boolean":
+      return typeof value === "boolean";
+    case "string":
+    case "enum":
+    case "date":
+    case "datetime":
+      return typeof value === "string";
+    case "json":
+    case "unknown":
+      return true;
+  }
+};
+
+const fieldTypeExpectation = (type: FieldType): string => {
+  switch (type) {
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "string":
+    case "enum":
+    case "date":
+    case "datetime":
+      return "string";
+    case "json":
+    case "unknown":
+      return "JSON value";
   }
 };
 

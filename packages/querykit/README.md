@@ -216,7 +216,7 @@ It should describe query intent, not raw SQL:
 
 The query schema should not expose raw table names, raw column names, raw SQL fragments, or arbitrary function names.
 
-`$param` references are bound from `params` during validation, before SQL compilation. Missing params fail validation; params used for `limit` or `offset` must be non-negative integers.
+`$param` references are bound from `params` during validation, before SQL compilation. Missing params fail validation; filter params are checked against the resolved field type; params used for `limit` or `offset` must be non-negative integers.
 
 ### Field Paths And Derived Joins
 

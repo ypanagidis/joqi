@@ -24,10 +24,21 @@ export type CreateQueryRuntimeInput<TDb, TResult = unknown> = {
   readonly executor: QueryRuntimeExecutor<TDb, TResult>;
 };
 
-export type QueryRuntimeRunInput = {
+export type QueryRuntimeRunInputBase = {
   readonly spec: unknown;
   readonly params?: QueryParams | undefined;
+};
+
+export type QueryRuntimeRunInput = QueryRuntimeRunInputBase & {
   readonly explain?: boolean | undefined;
+};
+
+export type QueryRuntimeRunInputWithExplain = QueryRuntimeRunInputBase & {
+  readonly explain: true;
+};
+
+export type QueryRuntimeRunInputWithoutExplain = QueryRuntimeRunInputBase & {
+  readonly explain?: false | undefined;
 };
 
 export type QueryRuntimeExplain = {
@@ -38,19 +49,33 @@ export type QueryRuntimeExplain = {
 
 export type QueryRuntimeResult = {
   readonly rows: QueryResultRows;
-  readonly explain?: QueryRuntimeExplain | undefined;
+};
+
+export type QueryRuntimeResultWithExplain = QueryRuntimeResult & {
+  readonly explain: QueryRuntimeExplain;
 };
 
 export type QueryRuntimeRunError = ResolveRegistryError | CompileQuerySpecToSQLError;
 
 export type QueryRuntime = {
-  readonly run: (input: QueryRuntimeRunInput) => Promise<QueryRuntimeResult>;
+  run(input: QueryRuntimeRunInputWithExplain): Promise<QueryRuntimeResultWithExplain>;
+  run(input: QueryRuntimeRunInputWithoutExplain): Promise<QueryRuntimeResult>;
+  run(input: QueryRuntimeRunInput): Promise<QueryRuntimeResult | QueryRuntimeResultWithExplain>;
 };
 
 export const createQueryRuntime = <TDb, TResult = unknown>(
   input: CreateQueryRuntimeInput<TDb, TResult>,
-): QueryRuntime => ({
-  run: async (runInput: QueryRuntimeRunInput): Promise<QueryRuntimeResult> => {
+): QueryRuntime => {
+  async function run(
+    input: QueryRuntimeRunInputWithExplain,
+  ): Promise<QueryRuntimeResultWithExplain>;
+  async function run(input: QueryRuntimeRunInputWithoutExplain): Promise<QueryRuntimeResult>;
+  async function run(
+    input: QueryRuntimeRunInput,
+  ): Promise<QueryRuntimeResult | QueryRuntimeResultWithExplain>;
+  async function run(
+    runInput: QueryRuntimeRunInput,
+  ): Promise<QueryRuntimeResult | QueryRuntimeResultWithExplain> {
     const registry = await resolveRegistryPromise({
       physical: input.physicalRegistry,
       ...(input.defaults === undefined ? {} : { defaults: input.defaults }),
@@ -82,5 +107,7 @@ export const createQueryRuntime = <TDb, TResult = unknown>(
     }
 
     return { rows };
-  },
-});
+  }
+
+  return { run };
+};

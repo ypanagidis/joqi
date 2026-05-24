@@ -27,7 +27,7 @@ const result = await runtime.run({
   },
   explain: true,
 });
-const explain = result.explain!;
+const { explain } = result;
 await db.$client.end();
 
 console.log(

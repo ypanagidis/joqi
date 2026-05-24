@@ -34,8 +34,8 @@ describe("createQueryRuntime", () => {
 
     expect(executedPlan?.params).toEqual([10000, 25]);
     expect(result.rows).toEqual([{ name: "Homepage Hero", budget: 15000 }]);
-    expect(result.explain?.sqlPlan).toEqual(executedPlan);
-    expect(result.explain?.ir.joins).toEqual([]);
+    expect(result.explain.sqlPlan).toEqual(executedPlan);
+    expect(result.explain.ir.joins).toEqual([]);
   });
 });
 

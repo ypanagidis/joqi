@@ -153,6 +153,10 @@ export type {
   QueryRuntimeExecutor,
   QueryRuntimeExplain,
   QueryRuntimeResult,
+  QueryRuntimeResultWithExplain,
   QueryRuntimeRunError,
   QueryRuntimeRunInput,
+  QueryRuntimeRunInputBase,
+  QueryRuntimeRunInputWithExplain,
+  QueryRuntimeRunInputWithoutExplain,
 } from "./runtime.js";
