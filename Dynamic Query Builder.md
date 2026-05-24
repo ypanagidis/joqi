@@ -237,6 +237,36 @@ campaign.name
 client.organization.name
 ```
 
+Relation fields use derived joins. A query does not declare joins directly; instead, the compiler derives the required join plan from validated public field paths.
+
+This is intentional for UI ergonomics:
+
+```txt
+Registry-backed field picker
+  -> campaign.name
+  -> QuerySpec.select / where / groupBy / orderBy
+```
+
+Derived joins are not arbitrary joins. Registry validation must reject a dotted path unless:
+
+```txt
+- Every relation segment exists in the resolved registry
+- The relation is exposed
+- The relation has the required capability for the query position
+- The traversal stays within maxDepth
+- The target field exists and has the required capability
+```
+
+For example, `campaign.name` is accepted only if the resolved `placement` source exposes a `campaign` relation targeting a resolved `campaign` source, and that target exposes `name`.
+
+The derived join plan must be emitted in the compiled representation so users and adapters can inspect the actual work:
+
+```txt
+campaign.name
+  -> join path: campaign
+  -> placements.campaignId = campaigns.id
+```
+
 The query schema must not allow:
 
 ```txt
@@ -593,6 +623,17 @@ The IR should contain:
 - Bound params
 - Normalized arrays
 - Validated limit/offset
+```
+
+`QueryIR.joins` is a derived join plan. It is generated from validated dotted field paths, deduplicated by relation path, and contains the physical join keys from the resolved registry.
+
+Example:
+
+```txt
+select: ["name", "campaign.name"]
+
+derived joins:
+  campaign: placements.campaignId = campaigns.id
 ```
 
 The IR is the point where the query becomes backend-compilable.

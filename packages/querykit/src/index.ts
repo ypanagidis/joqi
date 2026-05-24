@@ -1,7 +1,5 @@
 export const queryKitVersion = "0.0.2-alpha.0";
 
-export type QueryIR = unknown;
-
 export {
   JsonValueSchema,
   parseQuerySpec,
@@ -90,3 +88,44 @@ export type {
   ResolveRegistryError,
   ResolveRegistryInput,
 } from "./resolve-registry.js";
+
+export {
+  QueryParseError,
+  QueryValidationError,
+  QueryValidationIssueSchema,
+  validateQuerySpec,
+  validateQuerySpecEffect,
+  validateQuerySpecPromise,
+} from "./validate-query.js";
+export type {
+  QueryValidationIssue,
+  ValidateQuerySpecError,
+  ValidateQuerySpecInput,
+} from "./validate-query.js";
+
+export {
+  lowerQuerySpecToIR,
+  lowerQuerySpecToIREffect,
+  lowerQuerySpecToIRPromise,
+} from "./lower-query.js";
+export type {
+  LowerQuerySpecError,
+  LowerQuerySpecInput,
+  QueryIR,
+  QueryIRFieldRef,
+  QueryIRFilter,
+  QueryIRJoin,
+  QueryIROrderBy,
+  QueryIRSourceRef,
+} from "./lower-query.js";
+
+export {
+  compileQuerySpecToSQL,
+  compileQuerySpecToSQLEffect,
+  compileQuerySpecToSQLPromise,
+} from "./compile-sql.js";
+export type {
+  CompileQuerySpecToSQLError,
+  CompileQuerySpecToSQLInput,
+  SQLPlan,
+} from "./compile-sql.js";

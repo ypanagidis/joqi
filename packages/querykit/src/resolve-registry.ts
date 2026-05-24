@@ -525,6 +525,8 @@ const resolveRelations = (input: {
       publicName,
       target,
       kind: physicalRelation.kind,
+      localFields: physicalRelation.localFields,
+      foreignFields: physicalRelation.foreignFields,
       selectable:
         input.sourceCapabilities.selectable &&
         (relationPolicy?.selectable ?? input.defaults.relation?.selectable ?? false),

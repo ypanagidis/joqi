@@ -199,6 +199,8 @@ const makeResolvedRegistry = () => ({
           publicName: "campaign",
           target: "campaign",
           kind: "one",
+          localFields: ["campaignId"],
+          foreignFields: ["id"],
           selectable: true,
           filterable: true,
           maxDepth: 1,

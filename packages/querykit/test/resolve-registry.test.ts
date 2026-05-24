@@ -98,6 +98,8 @@ describe("resolveRegistry", () => {
     });
     expect(resolved.sources.placement!.relations.campaign).toMatchObject({
       target: "campaign",
+      localFields: ["campaignId"],
+      foreignFields: ["id"],
       selectable: true,
       filterable: true,
       maxDepth: 1,

@@ -39,6 +39,9 @@ import {
   parseResolvedRegistry,
   resolveRegistry,
   resolveRegistryPromise,
+  validateQuerySpec,
+  lowerQuerySpecToIR,
+  compileQuerySpecToSQL,
 } from "@ypanagidis/querykit";
 
 const query = parseQuerySpec({
@@ -60,6 +63,21 @@ const resolvedAsync = await resolveRegistryPromise({
   physical,
   defaults,
   policies: [basePolicy, rolePolicy],
+});
+
+const validatedQuery = validateQuerySpec({
+  query,
+  registry: resolved,
+});
+
+const ir = lowerQuerySpecToIR({
+  query: validatedQuery,
+  registry: resolved,
+});
+
+const sqlPlan = compileQuerySpecToSQL({
+  query: validatedQuery,
+  registry: resolved,
 });
 ```
 
@@ -87,6 +105,60 @@ program.pipe(
     RegistryResolutionError: (error) => Effect.succeed(error.issues),
   }),
 );
+```
+
+Query validation has the same Effect-first shape:
+
+```ts
+import { validateQuerySpecEffect } from "@ypanagidis/querykit/effect";
+
+const validatedQuery = await Effect.runPromise(
+  validateQuerySpecEffect({ query, registry: resolved }),
+);
+```
+
+Query lowering validates the query, resolves public paths to physical field refs, and emits deduplicated joins:
+
+```ts
+import { lowerQuerySpecToIREffect } from "@ypanagidis/querykit/effect";
+
+const ir = await Effect.runPromise(
+  lowerQuerySpecToIREffect({ query, registry: resolved }),
+);
+```
+
+The current IR is adapter-neutral:
+
+```ts
+type QueryIR = {
+  kind: "select";
+  source: QueryIRSourceRef;
+  select: QueryIRFieldRef[];
+  joins: QueryIRJoin[];
+  where?: QueryIRFilter;
+  groupBy: QueryIRFieldRef[];
+  orderBy: QueryIROrderBy[];
+  limit?: number;
+  offset?: number;
+};
+```
+
+The MySQL SQL compiler returns raw SQL plus bound params:
+
+```ts
+import { compileQuerySpecToSQLEffect } from "@ypanagidis/querykit/effect";
+
+const sqlPlan = await Effect.runPromise(
+  compileQuerySpecToSQLEffect({ query, registry: resolved }),
+);
+```
+
+```ts
+type SQLPlan = {
+  dialect: "mysql";
+  sql: string;
+  params: readonly JsonValue[];
+};
 ```
 
 All schemas are also exported directly for advanced validation flows:
@@ -122,6 +194,32 @@ It should describe query intent, not raw SQL:
 ```
 
 The query schema should not expose raw table names, raw column names, raw SQL fragments, or arbitrary function names.
+
+### Field Paths And Derived Joins
+
+QueryKit intentionally uses public dotted field paths for relation fields:
+
+```txt
+name
+budget
+campaign.name
+```
+
+This keeps UI builders simple: a field picker can emit the selected public path directly into `select`, `where`, `groupBy`, or `orderBy`.
+
+Dotted paths do not create arbitrary joins. During validation, every path segment must exist in the resolved registry and must have the required capability:
+
+```txt
+campaign.name
+  -> placement has an exposed campaign relation
+  -> campaign traversal is selectable/filterable for this query position
+  -> campaign is within maxDepth
+  -> campaign has an exposed name field
+```
+
+After validation, QueryKit derives a deduplicated join plan from those field paths. The join plan is visible in `QueryIR.joins` and is what the SQL compiler uses.
+
+So relation traversal is implicit in the public query for UI ergonomics, but explicit in the compiled plan for inspection and execution.
 
 ### Registry Schema
 
@@ -209,6 +307,19 @@ The resolved registry is what QueryKit actually compiles against. Queries only r
 ```txt
 placement.budget -> placements.budgetCents
 placement.campaign.name -> join placements.campaignId = campaigns.id, then campaigns.name
+```
+
+Resolved relations preserve the physical join keys needed by later IR lowering:
+
+```ts
+type ResolvedRelation = {
+  physicalSource: string;
+  physicalRelation: string;
+  target: string;
+  kind: "one" | "many";
+  localFields: string[];
+  foreignFields: string[];
+};
 ```
 
 ## Adapters

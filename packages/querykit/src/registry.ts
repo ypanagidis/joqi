@@ -153,6 +153,8 @@ export const ResolvedRelationSchema = z.object({
   publicName: z.string().min(1),
   target: z.string().min(1),
   kind: RelationKindSchema,
+  localFields: z.array(z.string().min(1)).min(1),
+  foreignFields: z.array(z.string().min(1)).min(1),
   selectable: z.boolean(),
   filterable: z.boolean(),
   maxDepth: z.number().int().nonnegative(),
@@ -180,6 +182,7 @@ export type PhysicalRegistry = z.infer<typeof PhysicalRegistrySchema>;
 export type PhysicalSource = z.infer<typeof PhysicalSourceSchema>;
 export type PhysicalField = z.infer<typeof PhysicalFieldSchema>;
 export type PhysicalRelation = z.infer<typeof PhysicalRelationSchema>;
+export type RelationKind = z.infer<typeof RelationKindSchema>;
 export type RegistryPolicy = z.infer<typeof RegistryPolicySchema>;
 export type SourcePolicy = z.infer<typeof SourcePolicySchema>;
 export type FieldPolicy = z.infer<typeof FieldPolicySchema>;
