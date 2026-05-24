@@ -12,6 +12,7 @@ import {
 import type { JsonValue, QueryFilterOperator } from "../../specs/query.js";
 import { mysqlDialectCompiler } from "./dialects/mysql.js";
 import { postgresDialectCompiler } from "./dialects/postgres.js";
+import { sqliteDialectCompiler } from "./dialects/sqlite.js";
 import type { SQLDialect, SQLDialectCompiler, SQLPlan } from "./types.js";
 
 export type { SQLDialect, SQLPlan } from "./types.js";
@@ -53,6 +54,7 @@ type SQLCompileContext = {
 const dialectCompilers = {
   mysql: mysqlDialectCompiler,
   postgres: postgresDialectCompiler,
+  sqlite: sqliteDialectCompiler,
 } satisfies Record<SQLDialect, SQLDialectCompiler>;
 
 const dialectCompilerFor = (dialect: SQLDialect): SQLDialectCompiler => dialectCompilers[dialect];

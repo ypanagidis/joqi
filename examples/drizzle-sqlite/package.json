@@ -1,0 +1,14 @@
+{
+  "name": "@querykit/example-drizzle-sqlite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "seed": "node --experimental-sqlite --experimental-strip-types src/db/seed.ts",
+    "start": "node --experimental-sqlite --experimental-strip-types src/index.ts"
+  },
+  "dependencies": {
+    "@ypanagidis/querykit": "workspace:*",
+    "@ypanagidis/querykit-drizzle": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.3"
+  }
+}

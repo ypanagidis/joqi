@@ -32,6 +32,7 @@ pnpm add @ypanagidis/querykit@alpha
 
 ```ts
 import {
+  createQueryRuntime,
   parseQuerySpec,
   parsePhysicalRegistry,
   parseRegistryDefaults,
@@ -78,6 +79,24 @@ const ir = lowerQuerySpecToIR({
 const sqlPlan = compileQuerySpecToSQL({
   query: validatedQuery,
   registry: resolved,
+});
+
+const runtime = createQueryRuntime({
+  db,
+  physicalRegistry: physical,
+  defaults,
+  policy,
+  dialect: "mysql",
+  executor,
+});
+
+const result = await runtime.run({
+  spec: query,
+  params: {
+    minBudget: 10000,
+    limit: 50,
+  },
+  explain: true,
 });
 ```
 
@@ -143,7 +162,7 @@ type QueryIR = {
 };
 ```
 
-The SQL compiler returns raw SQL plus bound params. It defaults to MySQL and can also emit PostgreSQL SQL:
+The SQL compiler returns raw SQL plus bound params. It defaults to MySQL and can also emit PostgreSQL or SQLite SQL:
 
 ```ts
 import { compileQuerySpecToSQLEffect } from "@ypanagidis/querykit/effect";
@@ -154,7 +173,7 @@ const sqlPlan = await Effect.runPromise(
 ```
 
 ```ts
-type SQLDialect = "mysql" | "postgres";
+type SQLDialect = "mysql" | "postgres" | "sqlite";
 
 type SQLPlan = {
   dialect: SQLDialect;
@@ -186,16 +205,18 @@ It should describe query intent, not raw SQL:
   "select": ["name", "status", "budget", "campaign.name"],
   "where": {
     "and": [
-      { "field": "status", "op": "eq", "value": "active" },
-      { "field": "budget", "op": "gte", "value": 10000 }
+      { "field": "status", "op": "eq", "value": { "$param": "status" } },
+      { "field": "budget", "op": "gte", "value": { "$param": "minBudget" } }
     ]
   },
   "orderBy": [{ "field": "budget", "direction": "desc" }],
-  "limit": 50
+  "limit": { "$param": "limit" }
 }
 ```
 
 The query schema should not expose raw table names, raw column names, raw SQL fragments, or arbitrary function names.
+
+`$param` references are bound from `params` during validation, before SQL compilation. Missing params fail validation; params used for `limit` or `offset` must be non-negative integers.
 
 ### Field Paths And Derived Joins
 
@@ -244,14 +265,13 @@ The physical registry says what exists.
 
 The registry policy says what is exposed.
 
-The resolved registry is generated from both, plus engine defaults and request context.
+The resolved registry is generated from both, plus engine defaults.
 
 ```ts
 const resolved = resolveRegistry({
   physical,
   defaults,
   policies,
-  context,
 });
 ```
 

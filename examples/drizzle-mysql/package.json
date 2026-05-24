@@ -1,0 +1,21 @@
+{
+  "name": "@querykit/example-drizzle-mysql",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:down": "docker compose down",
+    "db:push": "drizzle-kit push",
+    "db:up": "docker compose up -d --wait mysql",
+    "seed": "node --experimental-strip-types src/db/seed.ts",
+    "start": "node --experimental-strip-types src/index.ts"
+  },
+  "dependencies": {
+    "@ypanagidis/querykit": "workspace:*",
+    "@ypanagidis/querykit-drizzle": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.3",
+    "mysql2": "^3.22.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "1.0.0-rc.3"
+  }
+}

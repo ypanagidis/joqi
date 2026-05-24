@@ -1,0 +1,44 @@
+import { db } from "./index.ts";
+import { campaigns, placements, users } from "./schema.ts";
+
+await db.delete(placements);
+await db.delete(campaigns);
+await db.delete(users);
+
+await db.insert(users).values([
+  { id: "user-1", email: "ada@example.com", displayName: "Ada Lovelace" },
+  { id: "user-2", email: "grace@example.com", displayName: "Grace Hopper" },
+]);
+
+await db.insert(campaigns).values([
+  { id: "campaign-spring", name: "Spring Launch", ownerUserId: "user-1" },
+  { id: "campaign-winter", name: "Winter Retention", ownerUserId: "user-2" },
+]);
+
+await db.insert(placements).values([
+  {
+    id: "placement-1",
+    name: "Homepage Hero",
+    status: "active",
+    budgetCents: 15000,
+    campaignId: "campaign-spring",
+  },
+  {
+    id: "placement-2",
+    name: "Sidebar Promo",
+    status: "active",
+    budgetCents: 7500,
+    campaignId: "campaign-spring",
+  },
+  {
+    id: "placement-3",
+    name: "Email Footer",
+    status: "paused",
+    budgetCents: 20000,
+    campaignId: "campaign-winter",
+  },
+]);
+
+await db.$client.end();
+
+console.log("Seeded QueryKit PostgreSQL database.");

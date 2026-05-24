@@ -1,12 +1,7 @@
 import { Effect } from "effect";
 import type * as Either from "effect/Either";
 
-import type {
-  JsonValue,
-  QueryFilter,
-  QueryFilterOperator,
-  QuerySortDirection,
-} from "../specs/query.js";
+import type { JsonValue, QueryFilterOperator, QuerySortDirection } from "../specs/query.js";
 import { ResolvedRegistrySchema } from "../specs/registries.js";
 import type {
   FieldType,
@@ -16,6 +11,7 @@ import type {
 } from "../specs/registries.js";
 import {
   validateQuerySpecEffect,
+  type BoundQueryFilter,
   type ValidateQuerySpecError,
   type ValidateQuerySpecInput,
 } from "./validate.js";
@@ -142,7 +138,7 @@ const unwrapLowerQuerySpecResult = (
 const lowerFilter = (
   context: LoweringContext,
   source: ResolvedSource,
-  filter: QueryFilter,
+  filter: BoundQueryFilter,
 ): QueryIRFilter => {
   if ("and" in filter) {
     return {

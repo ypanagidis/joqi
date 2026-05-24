@@ -20,10 +20,10 @@ pnpm add @ypanagidis/querykit @ypanagidis/querykit-drizzle drizzle-orm@1.0.0-rc.
 ## Usage
 
 ```ts
-import { compileQuerySpecToSQL } from "@ypanagidis/querykit";
+import { createQueryRuntime } from "@ypanagidis/querykit";
 import {
   createPhysicalRegistryFromDrizzle,
-  executeSQLPlanWithDrizzle,
+  drizzleExecutor,
 } from "@ypanagidis/querykit-drizzle";
 
 const physical = createPhysicalRegistryFromDrizzle({
@@ -38,24 +38,30 @@ const physical = createPhysicalRegistryFromDrizzle({
   }),
 });
 
-const sqlPlan = compileQuerySpecToSQL({
-  query,
-  registry,
+const runtime = createQueryRuntime({
+  db,
+  physicalRegistry: physical,
+  defaults,
+  policy,
+  dialect: "mysql",
+  executor: drizzleExecutor(),
 });
 
-const rows = await executeSQLPlanWithDrizzle({
-  db,
-  plan: sqlPlan,
+const result = await runtime.run({
+  spec,
+  params,
+  explain: true,
 });
 ```
 
-The adapter converts MySQL `?` placeholders and PostgreSQL `$1`, `$2`, ... placeholders in the QueryKit `SQLPlan` into Drizzle params using `sql.param(...)`, then calls `db.execute(...)`.
+The adapter converts MySQL/SQLite `?` placeholders and PostgreSQL `$1`, `$2`, ... placeholders in the QueryKit `SQLPlan` into Drizzle params using `sql.param(...)`, then calls `db.execute(...)` or SQLite-style `db.all(...)`.
 
 ## API
 
 ```ts
 type DrizzleExecutor<TResult = unknown> = {
-  execute: (query: SQL) => TResult | Promise<TResult>;
+  execute?: (query: SQL) => TResult | Promise<TResult>;
+  all?: (query: SQL) => TResult | Promise<TResult>;
 };
 
 type ExecuteSQLPlanWithDrizzleInput<TResult = unknown> = {
@@ -67,6 +73,7 @@ type ExecuteSQLPlanWithDrizzleInput<TResult = unknown> = {
 ```ts
 sqlPlanToDrizzleSQL(plan);
 executeSQLPlanWithDrizzle({ db, plan });
+drizzleExecutor();
 createPhysicalRegistryFromDrizzle({ schema, relations });
 createPhysicalRegistryFromDrizzleRelations(relations);
 ```
@@ -77,11 +84,11 @@ Implemented:
 
 - Convert `SQLPlan` to Drizzle `SQL`
 - Preserve bound params
-- Execute through `db.execute(...)`
+- Execute through `db.execute(...)` or `db.all(...)`
+- Provide `drizzleExecutor()` for `createQueryRuntime`
 - Wrap execution failures in `DrizzleExecutionError`
 - Create a QueryKit `PhysicalRegistry` from Drizzle rc3 `defineRelations(...)` metadata
 
 Not implemented yet:
 
 - Drizzle query-builder compilation
-- Drizzle-specific row normalization

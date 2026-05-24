@@ -45,7 +45,7 @@ Current package:
 - [QuerySpec](#queryspec)
 - [Registry Layers](#registry-layers)
 - [SQLPlan](#sqlplan)
-- [Running The Sandbox](#running-the-sandbox)
+- [Running The Drizzle Examples](#running-the-drizzle-examples)
 - [Development](#development)
 - [Roadmap](#roadmap)
 
@@ -73,14 +73,13 @@ Currently implemented:
 - Registry-aware query validation
 - Derived join planning from public dotted field paths
 - Adapter-neutral `QueryIR`
-- MySQL and PostgreSQL `SQLPlan` compilation with bound params
+- MySQL, PostgreSQL, and SQLite `SQLPlan` compilation with bound params
 - Drizzle adapter package for registry creation and SQLPlan execution
-- Docker-backed sandbox example
+- Docker-backed Drizzle examples
 
 Not implemented yet:
 
 - Prisma adapter package
-- SQLite SQL dialect
 - Aggregation execution semantics
 - Forensic/explain output
 
@@ -137,6 +136,9 @@ QuerySpec + ResolvedRegistry
   -> lowerQuerySpecToIR
   -> compileQuerySpecToSQL
 ```
+
+Most applications should use `createQueryRuntime`, which wraps that pipeline and
+then calls an adapter executor.
 
 ## Quick Example
 
@@ -233,7 +235,7 @@ The policy decides what is public:
 }
 ```
 
-Now a UI can send a public query:
+Now a UI can send a reusable public query template:
 
 ```json
 {
@@ -242,13 +244,13 @@ Now a UI can send a public query:
   "select": ["name", "status", "budget", "campaign.name"],
   "where": {
     "and": [
-      { "field": "status", "op": "eq", "value": "active" },
-      { "field": "budget", "op": "gte", "value": 10000 },
-      { "field": "campaign.name", "op": "contains", "value": "spring" }
+      { "field": "status", "op": "eq", "value": { "$param": "status" } },
+      { "field": "budget", "op": "gte", "value": { "$param": "minBudget" } },
+      { "field": "campaign.name", "op": "contains", "value": { "$param": "campaignName" } }
     ]
   },
   "orderBy": [{ "field": "budget", "direction": "desc" }],
-  "limit": 25
+  "limit": { "$param": "limit" }
 }
 ```
 
@@ -257,37 +259,31 @@ No raw table names, raw column names, SQL snippets, or arbitrary joins appear in
 ## Basic Usage
 
 ```ts
-import {
-  compileQuerySpecToSQL,
-  lowerQuerySpecToIR,
-  resolveRegistry,
-  validateQuerySpec,
-} from "@ypanagidis/querykit";
+import { createQueryRuntime } from "@ypanagidis/querykit";
+import { drizzleExecutor } from "@ypanagidis/querykit-drizzle";
 
-const registry = resolveRegistry({
-  physical,
+const runtime = createQueryRuntime({
+  db,
+  physicalRegistry: physical,
   defaults,
-  policies: [basePolicy, rolePolicy],
-});
-
-const validatedQuery = validateQuerySpec({
-  query,
-  registry,
-});
-
-const ir = lowerQuerySpecToIR({
-  query: validatedQuery,
-  registry,
-});
-
-const sqlPlan = compileQuerySpecToSQL({
-  query: validatedQuery,
-  registry,
+  policy: userPolicy,
   dialect: "postgres",
+  executor: drizzleExecutor(),
+});
+
+const result = await runtime.run({
+  spec,
+  params: {
+    status: "active",
+    minBudget: 10000,
+    campaignName: "spring",
+    limit: 25,
+  },
+  explain: true,
 });
 ```
 
-Omit `dialect` to use MySQL. Example `SQLPlan` output for PostgreSQL:
+Omit `dialect` to use MySQL. With `explain: true`, the runtime includes the resolved registry, IR, and SQL plan. Example PostgreSQL `SQLPlan`:
 
 ```ts
 {
@@ -532,10 +528,10 @@ This allows different users, tenants, roles, or feature flags to see different q
 
 ## SQLPlan
 
-The current SQL compiler targets MySQL and PostgreSQL.
+The current SQL compiler targets MySQL, PostgreSQL, and SQLite.
 
 ```ts
-type SQLDialect = "mysql" | "postgres";
+type SQLDialect = "mysql" | "postgres" | "sqlite";
 
 type SQLPlan = {
   dialect: SQLDialect;
@@ -547,29 +543,41 @@ type SQLPlan = {
 Safety rules:
 
 - MySQL identifiers are quoted with backticks.
-- PostgreSQL identifiers are quoted with double quotes.
+- PostgreSQL and SQLite identifiers are quoted with double quotes.
 - Identifiers come from the resolved registry, not from user values.
-- MySQL values are emitted as `?` placeholders.
+- MySQL and SQLite values are emitted as `?` placeholders.
 - PostgreSQL values are emitted as `$1`, `$2`, ... placeholders.
 - `contains`, `startsWith`, and `endsWith` escape `LIKE` wildcards in user input.
 - Relation joins use physical join keys from `ResolvedRelation`.
 
 The `SQLPlan` is not executed by core QueryKit. Adapter packages execute it through raw SQL APIs, for example Drizzle, Prisma, Kysely, or a direct MySQL client.
 
-## Running The Sandbox
+## Running The Drizzle Examples
 
-The sandbox is the best way to see the current pipeline.
+The MySQL example is the best way to see the current pipeline end to end:
 
 ```bash
 pnpm install
 pnpm build
-pnpm --filter @querykit/example-sandbox db:up
-pnpm --filter @querykit/example-sandbox db:push
-pnpm --filter @querykit/example-sandbox seed
-pnpm --filter @querykit/example-sandbox start
+pnpm --filter @querykit/example-drizzle-mysql db:up
+pnpm --filter @querykit/example-drizzle-mysql db:push
+pnpm --filter @querykit/example-drizzle-mysql seed
+pnpm --filter @querykit/example-drizzle-mysql start
 ```
 
-It reads the public query from `examples/sandbox/input.json`, builds the physical registry from the Drizzle schema in `examples/sandbox/src/schema.ts`, then prints joins, the MySQL SQL plan, and validated rows. The sample includes `campaign.name`, which causes QueryKit to validate the relation and derive a join plan.
+It reads the public query template from `examples/drizzle-mysql/input.json`, passes params at runtime, builds the physical registry from the Drizzle schema in `examples/drizzle-mysql/src/schema.ts`, then prints joins, the MySQL SQL plan, and validated rows. The sample includes `campaign.name`, which causes QueryKit to validate the relation and derive a join plan.
+
+There are equivalent Drizzle examples for the other SQL dialects:
+
+```bash
+pnpm --filter @querykit/example-drizzle-postgres db:up
+pnpm --filter @querykit/example-drizzle-postgres db:push
+pnpm --filter @querykit/example-drizzle-postgres seed
+pnpm --filter @querykit/example-drizzle-postgres start
+
+pnpm --filter @querykit/example-drizzle-sqlite seed
+pnpm --filter @querykit/example-drizzle-sqlite start
+```
 
 Expected shape:
 
@@ -603,8 +611,14 @@ Project layout:
 packages/querykit
   Core package
 
-examples/sandbox
-  Runnable pipeline example
+examples/drizzle-mysql
+  Drizzle MySQL example
+
+examples/drizzle-postgres
+  Drizzle PostgreSQL example
+
+examples/drizzle-sqlite
+  Drizzle SQLite example
 
 apps/docs
   Reserved for future docs app
@@ -643,7 +657,6 @@ Near-term:
 
 - Add a Prisma raw SQL execution adapter
 - Decide how mandatory host constraints are represented
-- Add SQLite SQL dialect
 - Add better explain output for rejected queries and generated joins
 
 Later:

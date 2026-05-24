@@ -1,12 +1,15 @@
 import type { BuildQueryConfig, SQL } from "drizzle-orm/sql";
 import { defineRelations } from "drizzle-orm/relations";
 import { int, mysqlEnum, mysqlTable, varchar } from "drizzle-orm/mysql-core";
+import { integer, pgEnum, pgTable, varchar as pgVarchar } from "drizzle-orm/pg-core";
+import { int as sqliteInt, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { describe, expect, it, vi } from "vitest";
 
 import type { SQLPlan } from "@ypanagidis/querykit";
 import {
   createPhysicalRegistryFromDrizzle,
   createPhysicalRegistryFromDrizzleRelations,
+  drizzleExecutor,
   DrizzleExecutionError,
   executeSQLPlanWithDrizzle,
   sqlPlanToDrizzleSQL,
@@ -89,6 +92,69 @@ describe("Drizzle physical registry creation", () => {
       },
     });
   });
+
+  it("creates a PhysicalRegistry from PostgreSQL tables", () => {
+    const physical = createPhysicalRegistryFromDrizzle({
+      schema: pgTestSchema,
+      relations: (r) => ({
+        placements: {
+          campaign: r.one.campaigns({
+            from: r.placements.campaignId,
+            to: r.campaigns.id,
+          }),
+        },
+      }),
+    });
+
+    expect(physical.sources.placements).toMatchObject({
+      name: "placements",
+      primaryKey: ["id"],
+      fields: {
+        status: {
+          type: "enum",
+          enumValues: ["active", "paused", "archived"],
+        },
+        budgetCents: { type: "number" },
+      },
+      relations: {
+        campaign: {
+          target: "campaigns",
+          localFields: ["campaignId"],
+          foreignFields: ["id"],
+        },
+      },
+    });
+  });
+
+  it("creates a PhysicalRegistry from SQLite tables", () => {
+    const physical = createPhysicalRegistryFromDrizzle({
+      schema: sqliteTestSchema,
+      relations: (r) => ({
+        placements: {
+          campaign: r.one.campaigns({
+            from: r.placements.campaignId,
+            to: r.campaigns.id,
+          }),
+        },
+      }),
+    });
+
+    expect(physical.sources.placements).toMatchObject({
+      name: "placements",
+      primaryKey: ["id"],
+      fields: {
+        status: { type: "enum", enumValues: ["active", "paused", "archived"] },
+        budgetCents: { type: "number" },
+      },
+      relations: {
+        campaign: {
+          target: "campaigns",
+          localFields: ["campaignId"],
+          foreignFields: ["id"],
+        },
+      },
+    });
+  });
 });
 
 describe("Drizzle SQLPlan execution", () => {
@@ -106,6 +172,15 @@ describe("Drizzle SQLPlan execution", () => {
 
     expect(query).toEqual({
       sql: 'select "t0"."name" from "placements" as "t0" where "t0"."status" = $1 limit $2',
+      params: ["active", 25],
+    });
+  });
+
+  it("converts SQLite SQLPlan placeholders into Drizzle params", () => {
+    const query = sqlPlanToDrizzleSQL(makeSqlitePlan()).toQuery(sqliteQueryConfig);
+
+    expect(query).toEqual({
+      sql: 'select "t0"."name" from "placements" as "t0" where "t0"."status" = ? limit ?',
       params: ["active", 25],
     });
   });
@@ -130,6 +205,35 @@ describe("Drizzle SQLPlan execution", () => {
         params: ["active", 25],
       },
     });
+  });
+
+  it("executes SQLPlan through SQLite-style all(...)", async () => {
+    const rows = [{ name: "Spring Placement" }];
+    const all = vi.fn(async (_query: SQL) => rows);
+
+    const result = await executeSQLPlanWithDrizzle({
+      db: { all },
+      plan: makeSqlitePlan(),
+    });
+
+    expect(all).toHaveBeenCalledOnce();
+    expect(result).toEqual(rows);
+  });
+
+  it("normalizes Drizzle execute results for the runtime executor", async () => {
+    const rows = [{ name: "Spring Placement" }];
+    const execute = vi.fn(async () => [rows, []]);
+    const db = { execute };
+    const executor = drizzleExecutor<typeof db>();
+
+    await expect(executor({ db, plan: makePlan() })).resolves.toEqual(rows);
+  });
+
+  it("preserves SQLite row arrays for the runtime executor", async () => {
+    const rows = [{ name: "Spring Placement" }];
+    const all = vi.fn(async () => rows);
+
+    await expect(drizzleExecutor()({ db: { all }, plan: makeSqlitePlan() })).resolves.toEqual(rows);
   });
 
   it("wraps execution failures in DrizzleExecutionError", async () => {
@@ -188,6 +292,12 @@ const makePostgresPlan = (): SQLPlan => ({
   params: ["active", 25],
 });
 
+const makeSqlitePlan = (): SQLPlan => ({
+  dialect: "sqlite",
+  sql: 'select "t0"."name" from "placements" as "t0" where "t0"."status" = ? limit ?',
+  params: ["active", 25],
+});
+
 const mysqlQueryConfig: BuildQueryConfig = {
   escapeName: (name) => `\`${name.replaceAll("`", "``")}\``,
   escapeParam: () => "?",
@@ -197,6 +307,12 @@ const mysqlQueryConfig: BuildQueryConfig = {
 const postgresQueryConfig: BuildQueryConfig = {
   escapeName: (name) => `"${name.replaceAll('"', '""')}"`,
   escapeParam: (index) => `$${index + 1}`,
+  escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
+};
+
+const sqliteQueryConfig: BuildQueryConfig = {
+  escapeName: (name) => `"${name.replaceAll('"', '""')}"`,
+  escapeParam: () => "?",
   escapeString: (value) => `'${value.replaceAll("'", "''")}'`,
 };
 
@@ -228,4 +344,46 @@ const testSchema = {
   users,
   campaigns,
   placements,
+};
+
+const pgPlacementStatus = pgEnum("placement_status", ["active", "paused", "archived"]);
+
+const pgCampaigns = pgTable("campaigns", {
+  id: pgVarchar("id", { length: 36 }).primaryKey(),
+  name: pgVarchar("name", { length: 255 }).notNull(),
+});
+
+const pgPlacements = pgTable("placements", {
+  id: pgVarchar("id", { length: 36 }).primaryKey(),
+  name: pgVarchar("name", { length: 255 }).notNull(),
+  status: pgPlacementStatus("status").notNull(),
+  budgetCents: integer("budgetCents").notNull(),
+  campaignId: pgVarchar("campaignId", { length: 36 })
+    .notNull()
+    .references(() => pgCampaigns.id),
+});
+
+const pgTestSchema = {
+  campaigns: pgCampaigns,
+  placements: pgPlacements,
+};
+
+const sqliteCampaigns = sqliteTable("campaigns", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+});
+
+const sqlitePlacements = sqliteTable("placements", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  status: text("status", { enum: ["active", "paused", "archived"] }).notNull(),
+  budgetCents: sqliteInt("budgetCents").notNull(),
+  campaignId: text("campaignId")
+    .notNull()
+    .references(() => sqliteCampaigns.id),
+});
+
+const sqliteTestSchema = {
+  campaigns: sqliteCampaigns,
+  placements: sqlitePlacements,
 };

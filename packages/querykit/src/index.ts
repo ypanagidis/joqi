@@ -3,6 +3,8 @@ export const queryKitVersion = "0.0.2-alpha.0";
 export {
   JsonValueSchema,
   parseQuerySpec,
+  QueryParamRefSchema,
+  QueryParamsSchema,
   QueryFilterOperatorSchema,
   QueryFilterSchema,
   QueryOrderBySchema,
@@ -13,6 +15,10 @@ export {
 } from "./specs/query.js";
 export type {
   JsonValue,
+  QueryLimitValue,
+  QueryParamRef,
+  QueryParams,
+  QueryValue,
   QueryFilter,
   QueryFilterOperator,
   QueryOrderBy,
@@ -101,6 +107,7 @@ export type {
   QueryValidationIssue,
   ValidateQuerySpecError,
   ValidateQuerySpecInput,
+  ValidatedQuerySpec,
 } from "./query/validate.js";
 
 export {
@@ -138,3 +145,14 @@ export {
   safeParseQueryIRResultRows,
 } from "./results/schema.js";
 export type { QueryResultRow, QueryResultRows } from "./results/schema.js";
+
+export { createQueryRuntime } from "./runtime.js";
+export type {
+  CreateQueryRuntimeInput,
+  QueryRuntime,
+  QueryRuntimeExecutor,
+  QueryRuntimeExplain,
+  QueryRuntimeResult,
+  QueryRuntimeRunError,
+  QueryRuntimeRunInput,
+} from "./runtime.js";

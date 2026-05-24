@@ -2,8 +2,16 @@ import { Effect, Schema } from "effect";
 import type * as Either from "effect/Either";
 import { ZodError } from "zod";
 
-import { QuerySpecSchema } from "../specs/query.js";
-import type { QueryFilter, QuerySpec } from "../specs/query.js";
+import { QueryParamsSchema, QuerySpecSchema } from "../specs/query.js";
+import type {
+  JsonValue,
+  QueryFilter,
+  QueryFilterOperator,
+  QueryParamRef,
+  QueryParams,
+  QuerySpec,
+  QueryValue,
+} from "../specs/query.js";
 import { ResolvedRegistrySchema } from "../specs/registries.js";
 import type {
   ResolvedField,
@@ -15,6 +23,26 @@ import type {
 export type ValidateQuerySpecInput = {
   readonly query: unknown;
   readonly registry: unknown;
+  readonly params?: unknown;
+};
+
+export type BoundQueryFilter =
+  | {
+      readonly and: readonly BoundQueryFilter[];
+    }
+  | {
+      readonly or: readonly BoundQueryFilter[];
+    }
+  | {
+      readonly field: string;
+      readonly op: QueryFilterOperator;
+      readonly value?: JsonValue | undefined;
+    };
+
+export type ValidatedQuerySpec = Omit<QuerySpec, "where" | "limit" | "offset"> & {
+  readonly where?: BoundQueryFilter | undefined;
+  readonly limit?: number | undefined;
+  readonly offset?: number | undefined;
 };
 
 const QueryFilterOperatorErrorSchema = Schema.Literal(
@@ -88,12 +116,23 @@ export const QueryValidationIssueSchema = Schema.Union(
     limit: Schema.Number,
     maxLimit: Schema.Number,
   }),
+  Schema.Struct({
+    code: Schema.Literal("missing_param"),
+    param: Schema.String,
+    path: Schema.String,
+  }),
+  Schema.Struct({
+    code: Schema.Literal("invalid_param_value"),
+    param: Schema.String,
+    path: Schema.String,
+    expected: Schema.String,
+  }),
 );
 
 export type QueryValidationIssue = typeof QueryValidationIssueSchema.Type;
 
 export class QueryParseError extends Schema.TaggedError<QueryParseError>()("QueryParseError", {
-  input: Schema.Literal("query", "registry"),
+  input: Schema.Literal("query", "registry", "params"),
   error: Schema.Defect,
 }) {}
 
@@ -108,72 +147,80 @@ export type ValidateQuerySpecError = QueryParseError | QueryValidationError;
 
 export const validateQuerySpecEffect: (
   input: ValidateQuerySpecInput,
-) => Effect.Effect<QuerySpec, ValidateQuerySpecError> = Effect.fn("validateQuerySpec")(function* (
-  input: ValidateQuerySpecInput,
-) {
-  const query = yield* parseValidationInput("query", () => QuerySpecSchema.parse(input.query));
-  const registry = yield* parseValidationInput("registry", () =>
-    ResolvedRegistrySchema.parse(input.registry),
-  );
-  const issues: QueryValidationIssue[] = [];
-  const source = registry.sources[query.source];
+) => Effect.Effect<ValidatedQuerySpec, ValidateQuerySpecError> = Effect.fn("validateQuerySpec")(
+  function* (input: ValidateQuerySpecInput) {
+    const parsedQuery = yield* parseValidationInput("query", () =>
+      QuerySpecSchema.parse(input.query),
+    );
+    const params = yield* parseValidationInput("params", () =>
+      QueryParamsSchema.parse(input.params ?? {}),
+    );
+    const registry = yield* parseValidationInput("registry", () =>
+      ResolvedRegistrySchema.parse(input.registry),
+    );
+    const issues: QueryValidationIssue[] = [];
+    const query = bindQueryParams({ query: parsedQuery, params, issues });
+    const source = registry.sources[query.source];
 
-  if (source === undefined) {
-    return yield* new QueryValidationError({
-      issues: [{ code: "unknown_source", source: query.source }],
-    });
-  }
+    if (source === undefined) {
+      return yield* new QueryValidationError({
+        issues: [{ code: "unknown_source", source: query.source }],
+      });
+    }
 
-  validateLimit(query, source, issues);
+    validateLimit(query, source, issues);
 
-  for (const fieldPath of query.select) {
-    validateFieldPath({
-      registry,
-      source,
-      fieldPath,
-      fieldCapability: "selectable",
-      relationCapability: "selectable",
-      issues,
-    });
-  }
+    for (const fieldPath of query.select) {
+      validateFieldPath({
+        registry,
+        source,
+        fieldPath,
+        fieldCapability: "selectable",
+        relationCapability: "selectable",
+        issues,
+      });
+    }
 
-  if (query.where !== undefined) {
-    validateFilter({ registry, source, filter: query.where, issues });
-  }
+    if (query.where !== undefined) {
+      validateFilter({ registry, source, filter: query.where, issues });
+    }
 
-  for (const fieldPath of query.groupBy ?? []) {
-    validateFieldPath({
-      registry,
-      source,
-      fieldPath,
-      fieldCapability: "groupable",
-      relationCapability: "selectable",
-      issues,
-    });
-  }
+    for (const fieldPath of query.groupBy ?? []) {
+      validateFieldPath({
+        registry,
+        source,
+        fieldPath,
+        fieldCapability: "groupable",
+        relationCapability: "selectable",
+        issues,
+      });
+    }
 
-  for (const orderBy of query.orderBy ?? []) {
-    validateFieldPath({
-      registry,
-      source,
-      fieldPath: orderBy.field,
-      fieldCapability: "sortable",
-      relationCapability: "selectable",
-      issues,
-    });
-  }
+    for (const orderBy of query.orderBy ?? []) {
+      validateFieldPath({
+        registry,
+        source,
+        fieldPath: orderBy.field,
+        fieldCapability: "sortable",
+        relationCapability: "selectable",
+        issues,
+      });
+    }
 
-  if (issues.length > 0) {
-    return yield* new QueryValidationError({ issues });
-  }
+    if (issues.length > 0) {
+      return yield* new QueryValidationError({ issues });
+    }
 
-  return query;
-});
+    return query;
+  },
+);
 
-export const validateQuerySpec = (input: ValidateQuerySpecInput): QuerySpec =>
+export const validateQuerySpec = (input: ValidateQuerySpecInput): ValidatedQuerySpec =>
   unwrapValidateQuerySpecResult(Effect.runSync(Effect.either(validateQuerySpecEffect(input))));
 
-export const validateQuerySpecPromise = async (input: ValidateQuerySpecInput): Promise<QuerySpec> =>
+export const validateQuerySpecPromise = async (
+  input: ValidateQuerySpecInput,
+): Promise<ValidatedQuerySpec> =>
   unwrapValidateQuerySpecResult(
     await Effect.runPromise(Effect.either(validateQuerySpecEffect(input))),
   );
@@ -181,7 +228,7 @@ export const validateQuerySpecPromise = async (input: ValidateQuerySpecInput): P
 type FieldCapability = "selectable" | "filterable" | "sortable" | "groupable";
 type RelationCapability = "selectable" | "filterable";
 
-const parseValidationInput = <Value>(input: "query" | "registry", parse: () => Value) =>
+const parseValidationInput = <Value>(input: "query" | "registry" | "params", parse: () => Value) =>
   Effect.try({
     try: parse,
     catch: (error) => {
@@ -194,8 +241,8 @@ const parseValidationInput = <Value>(input: "query" | "registry", parse: () => V
   });
 
 const unwrapValidateQuerySpecResult = (
-  result: Either.Either<QuerySpec, ValidateQuerySpecError>,
-): QuerySpec => {
+  result: Either.Either<ValidatedQuerySpec, ValidateQuerySpecError>,
+): ValidatedQuerySpec => {
   if (result._tag === "Left") {
     throw result.left;
   }
@@ -203,8 +250,157 @@ const unwrapValidateQuerySpecResult = (
   return result.right;
 };
 
+const bindQueryParams = (input: {
+  readonly query: QuerySpec;
+  readonly params: QueryParams;
+  readonly issues: QueryValidationIssue[];
+}): ValidatedQuerySpec => ({
+  version: input.query.version,
+  source: input.query.source,
+  select: input.query.select,
+  ...(input.query.groupBy === undefined ? {} : { groupBy: input.query.groupBy }),
+  ...(input.query.orderBy === undefined ? {} : { orderBy: input.query.orderBy }),
+  ...(input.query.where === undefined
+    ? {}
+    : { where: bindFilterParams({ ...input, filter: input.query.where, path: "where" }) }),
+  ...(input.query.limit === undefined
+    ? {}
+    : { limit: bindLimitParam({ ...input, value: input.query.limit, path: "limit" }) }),
+  ...(input.query.offset === undefined
+    ? {}
+    : { offset: bindLimitParam({ ...input, value: input.query.offset, path: "offset" }) }),
+});
+
+const bindFilterParams = (input: {
+  readonly query: QuerySpec;
+  readonly params: QueryParams;
+  readonly issues: QueryValidationIssue[];
+  readonly filter: QueryFilter;
+  readonly path: string;
+}): BoundQueryFilter => {
+  if ("and" in input.filter) {
+    return {
+      and: input.filter.and.map((filter, index) =>
+        bindFilterParams({ ...input, filter, path: `${input.path}.and[${index}]` }),
+      ),
+    };
+  }
+
+  if ("or" in input.filter) {
+    return {
+      or: input.filter.or.map((filter, index) =>
+        bindFilterParams({ ...input, filter, path: `${input.path}.or[${index}]` }),
+      ),
+    };
+  }
+
+  if (input.filter.value === undefined) {
+    return {
+      field: input.filter.field,
+      op: input.filter.op,
+    };
+  }
+
+  const value = bindJsonParam({
+    params: input.params,
+    issues: input.issues,
+    value: input.filter.value,
+    path: `${input.path}.value`,
+  });
+
+  if (
+    input.filter.op === "in" &&
+    isQueryParamRef(input.filter.value) &&
+    Object.hasOwn(input.params, input.filter.value.$param) &&
+    (!Array.isArray(value) || value.length === 0)
+  ) {
+    input.issues.push({
+      code: "invalid_param_value",
+      param: input.filter.value.$param,
+      path: `${input.path}.value`,
+      expected: "non-empty array",
+    });
+  }
+
+  return {
+    field: input.filter.field,
+    op: input.filter.op,
+    value,
+  };
+};
+
+const bindLimitParam = (input: {
+  readonly params: QueryParams;
+  readonly issues: QueryValidationIssue[];
+  readonly value: QuerySpec["limit"];
+  readonly path: string;
+}): number | undefined => {
+  if (typeof input.value === "number") {
+    return input.value;
+  }
+
+  if (isQueryParamRef(input.value) && !Object.hasOwn(input.params, input.value.$param)) {
+    input.issues.push({
+      code: "missing_param",
+      param: input.value.$param,
+      path: input.path,
+    });
+    return undefined;
+  }
+
+  const value = bindJsonParam({
+    params: input.params,
+    issues: input.issues,
+    value: input.value,
+    path: input.path,
+  });
+
+  if (typeof value === "number" && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+
+  if (isQueryParamRef(input.value)) {
+    input.issues.push({
+      code: "invalid_param_value",
+      param: input.value.$param,
+      path: input.path,
+      expected: "non-negative integer",
+    });
+  }
+
+  return undefined;
+};
+
+const bindJsonParam = (input: {
+  readonly params: QueryParams;
+  readonly issues: QueryValidationIssue[];
+  readonly value: QueryValue | undefined;
+  readonly path: string;
+}): JsonValue | undefined => {
+  if (!isQueryParamRef(input.value)) {
+    return input.value;
+  }
+
+  if (!Object.hasOwn(input.params, input.value.$param)) {
+    input.issues.push({
+      code: "missing_param",
+      param: input.value.$param,
+      path: input.path,
+    });
+    return undefined;
+  }
+
+  return input.params[input.value.$param];
+};
+
+const isQueryParamRef = (value: unknown): value is QueryParamRef =>
+  value !== null &&
+  typeof value === "object" &&
+  Object.keys(value).length === 1 &&
+  typeof (value as { readonly $param?: unknown }).$param === "string";
+
 const validateLimit = (
-  query: QuerySpec,
+  query: ValidatedQuerySpec,
   source: ResolvedSource,
   issues: QueryValidationIssue[],
 ) => {
@@ -221,7 +417,7 @@ const validateLimit = (
 const validateFilter = (input: {
   registry: ResolvedRegistry;
   source: ResolvedSource;
-  filter: QueryFilter;
+  filter: BoundQueryFilter;
   issues: QueryValidationIssue[];
 }) => {
   if ("and" in input.filter) {

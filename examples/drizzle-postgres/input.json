@@ -1,0 +1,16 @@
+{
+  "query": {
+    "version": "v1",
+    "source": "placement",
+    "select": ["name", "status", "budget", "campaign.name"],
+    "where": {
+      "and": [
+        { "field": "status", "op": "eq", "value": { "$param": "status" } },
+        { "field": "budget", "op": "gte", "value": { "$param": "minBudget" } },
+        { "field": "campaign.name", "op": "contains", "value": { "$param": "campaignName" } }
+      ]
+    },
+    "orderBy": [{ "field": "budget", "direction": "desc" }],
+    "limit": { "$param": "limit" }
+  }
+}

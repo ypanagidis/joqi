@@ -121,6 +121,85 @@ describe("validateQuerySpec", () => {
     ]);
   });
 
+  it("binds query param refs during validation", () => {
+    expect(
+      validateQuerySpec({
+        query: {
+          version: "v1",
+          source: "placement",
+          select: ["name"],
+          where: { field: "budget", op: "gte", value: { $param: "minBudget" } },
+          limit: { $param: "limit" },
+        },
+        params: {
+          minBudget: 10000,
+          limit: 25,
+        },
+        registry: makeRegistry(),
+      }),
+    ).toEqual({
+      version: "v1",
+      source: "placement",
+      select: ["name"],
+      where: { field: "budget", op: "gte", value: 10000 },
+      limit: 25,
+    });
+  });
+
+  it("reports missing and invalid query params", () => {
+    const error = captureQueryValidationError(() =>
+      validateQuerySpec({
+        query: {
+          version: "v1",
+          source: "placement",
+          select: ["name"],
+          where: { field: "budget", op: "gte", value: { $param: "minBudget" } },
+          limit: { $param: "limit" },
+        },
+        params: {
+          limit: "25",
+        },
+        registry: makeRegistry(),
+      }),
+    );
+
+    expect(error.issues).toEqual([
+      { code: "missing_param", param: "minBudget", path: "where.value" },
+      {
+        code: "invalid_param_value",
+        param: "limit",
+        path: "limit",
+        expected: "non-negative integer",
+      },
+    ]);
+  });
+
+  it("requires params used with in filters to be non-empty arrays", () => {
+    const error = captureQueryValidationError(() =>
+      validateQuerySpec({
+        query: {
+          version: "v1",
+          source: "placement",
+          select: ["name"],
+          where: { field: "status", op: "in", value: { $param: "statuses" } },
+        },
+        params: {
+          statuses: "active",
+        },
+        registry: makeRegistry(),
+      }),
+    );
+
+    expect(error.issues).toEqual([
+      {
+        code: "invalid_param_value",
+        param: "statuses",
+        path: "where.value",
+        expected: "non-empty array",
+      },
+    ]);
+  });
+
   it("reports relation filter capability and depth failures", () => {
     const error = captureQueryValidationError(() =>
       validateQuerySpec({
@@ -200,6 +279,19 @@ const makeRegistry = (options: { campaignFilterable?: boolean } = {}) =>
             sortable: false,
             groupable: false,
             operators: [],
+            aggregations: [],
+          },
+          status: {
+            physicalSource: "placements",
+            physicalField: "status",
+            publicName: "status",
+            type: "enum",
+            nullable: false,
+            selectable: true,
+            filterable: true,
+            sortable: true,
+            groupable: false,
+            operators: ["in"],
             aggregations: [],
           },
           privateNote: {

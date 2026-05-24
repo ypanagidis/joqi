@@ -1,11 +1,5 @@
-import { drizzle } from "drizzle-orm/mysql2";
-
+import { db } from "./index.ts";
 import { campaigns, placements, users } from "./schema.ts";
-
-const databaseUrl =
-  process.env.DATABASE_URL ?? "mysql://querykit:querykit@127.0.0.1:3307/querykit_sandbox";
-
-const db = drizzle(databaseUrl);
 
 await db.delete(placements);
 await db.delete(campaigns);
@@ -63,4 +57,4 @@ await db.insert(placements).values([
 
 await db.$client.end();
 
-console.log("Seeded QueryKit sandbox database.");
+console.log("Seeded QueryKit MySQL database.");

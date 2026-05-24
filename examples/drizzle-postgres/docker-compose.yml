@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: querykit_postgres
+      POSTGRES_USER: querykit
+      POSTGRES_PASSWORD: querykit
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U querykit -d querykit_postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - querykit-drizzle-postgres:/var/lib/postgresql/data
+
+volumes:
+  querykit-drizzle-postgres:

@@ -1,5 +1,4 @@
 import { sql, type SQL } from "drizzle-orm/sql";
-import { getTableConfig, type MySqlTable } from "drizzle-orm/mysql-core";
 import {
   defineRelations,
   type AnyRelationsBuilderConfig,
@@ -12,6 +11,7 @@ import {
   parsePhysicalRegistry,
   type FieldType,
   type PhysicalRegistry,
+  type QueryRuntimeExecutor,
   type SQLPlan,
 } from "@ypanagidis/querykit";
 
@@ -23,6 +23,8 @@ type DrizzleColumn = {
   readonly columnType: string;
   readonly enumValues?: readonly string[] | undefined;
 };
+
+type DrizzleTable = object;
 
 type DrizzleRelation = {
   readonly relationType: "one" | "many";
@@ -40,13 +42,19 @@ export type CreatePhysicalRegistryFromDrizzleInput<TSchema extends Record<string
 };
 
 export type DrizzleExecutor<TResult = unknown> = {
-  readonly execute: (query: SQL) => TResult | Promise<TResult>;
+  readonly execute?: ((query: SQL) => TResult | Promise<TResult>) | undefined;
+  readonly all?: ((query: SQL) => TResult | Promise<TResult>) | undefined;
 };
 
 export type ExecuteSQLPlanWithDrizzleInput<TResult = unknown> = {
   readonly db: DrizzleExecutor<TResult>;
   readonly plan: SQLPlan;
 };
+
+export const drizzleExecutor =
+  <TDb extends DrizzleExecutor>(): QueryRuntimeExecutor<TDb> =>
+  async ({ db, plan }) =>
+    rowsFromDrizzleResult(await executeSQLPlanWithDrizzle({ db, plan }));
 
 export class DrizzleExecutionError extends Error {
   override readonly cause: unknown;
@@ -59,6 +67,11 @@ export class DrizzleExecutionError extends Error {
     this.sql = input.sql;
   }
 }
+
+const tableNameSymbol = Symbol.for("drizzle:Name");
+const tableSchemaSymbol = Symbol.for("drizzle:Schema");
+const tableColumnsSymbol = Symbol.for("drizzle:Columns");
+const tableBaseNameSymbol = Symbol.for("drizzle:BaseName");
 
 export const createPhysicalRegistryFromDrizzle = <TSchema extends Record<string, unknown>>(
   input: CreatePhysicalRegistryFromDrizzleInput<TSchema>,
@@ -75,16 +88,16 @@ export const createPhysicalRegistryFromDrizzleRelations = (
   const sourceNamesByRelationName = new Map(
     Object.entries(relations).map(([relationName, tableConfig]) => [
       relationName,
-      getTableConfig(tableConfig.table as MySqlTable).name,
+      tableName(tableConfig.table as DrizzleTable),
     ]),
   );
 
   const sources = Object.fromEntries(
     Object.values(relations).map((tableConfig) => {
-      const table = tableConfig.table as MySqlTable;
-      const tableMetadata = getTableConfig(table);
+      const table = tableConfig.table as DrizzleTable;
+      const columns = tableColumns(table);
       const fields = Object.fromEntries(
-        tableMetadata.columns.map((column) => [
+        columns.map((column) => [
           column.name,
           {
             type: mapDrizzleColumnType(column),
@@ -99,12 +112,9 @@ export const createPhysicalRegistryFromDrizzleRelations = (
           },
         ]),
       );
-      const primaryKey = unique([
-        ...tableMetadata.columns.filter((column) => column.primary).map((column) => column.name),
-        ...tableMetadata.primaryKeys.flatMap((primaryKey) =>
-          primaryKey.columns.map((column) => column.name),
-        ),
-      ]);
+      const primaryKey = unique(
+        columns.filter((column) => column.primary).map((column) => column.name),
+      );
       const tableRelations = Object.fromEntries(
         Object.entries(tableConfig.relations).map(([relationName, relation]) => [
           relationName,
@@ -113,18 +123,18 @@ export const createPhysicalRegistryFromDrizzleRelations = (
       );
 
       return [
-        tableMetadata.name,
+        tableName(table),
         {
           kind: "table",
-          name: tableMetadata.name,
-          ...(tableMetadata.schema === undefined ? {} : { schema: tableMetadata.schema }),
+          name: tableName(table),
+          ...(tableSchema(table) === undefined ? {} : { schema: tableSchema(table) }),
           ...(primaryKey.length === 0 ? {} : { primaryKey }),
           fields,
           ...(Object.keys(tableRelations).length === 0 ? {} : { relations: tableRelations }),
           adapterMeta: {
             drizzle: {
               relationName: tableConfig.name,
-              baseName: tableMetadata.baseName,
+              baseName: tableBaseName(table),
             },
           },
         },
@@ -237,14 +247,49 @@ const mapDrizzleColumnType = (column: DrizzleColumn): FieldType => {
   return "unknown";
 };
 
+const tableName = (table: DrizzleTable): string => tableValue(table, tableNameSymbol);
+
+const tableSchema = (table: DrizzleTable): string | undefined =>
+  tableValue(table, tableSchemaSymbol);
+
+const tableBaseName = (table: DrizzleTable): string => tableValue(table, tableBaseNameSymbol);
+
+const tableColumns = (table: DrizzleTable): DrizzleColumn[] =>
+  Object.values(tableValue<Record<string, DrizzleColumn>>(table, tableColumnsSymbol));
+
+const tableValue = <Value>(table: DrizzleTable, symbol: symbol): Value =>
+  (table as { readonly [key: symbol]: Value })[symbol]!;
+
 const unique = <Value>(values: readonly Value[]): Value[] => [...new Set(values)];
 
 export const executeSQLPlanWithDrizzle = async <TResult = unknown>(
   input: ExecuteSQLPlanWithDrizzleInput<TResult>,
 ): Promise<Awaited<TResult>> => {
   try {
-    return await input.db.execute(sqlPlanToDrizzleSQL(input.plan));
+    const query = sqlPlanToDrizzleSQL(input.plan);
+
+    if (input.db.execute !== undefined) {
+      return await input.db.execute(query);
+    }
+
+    if (input.db.all !== undefined) {
+      return await input.db.all(query);
+    }
+
+    throw new Error("Drizzle executor must provide execute(...) or all(...)");
   } catch (cause) {
     throw new DrizzleExecutionError({ sql: input.plan.sql, cause });
   }
+};
+
+const rowsFromDrizzleResult = (result: unknown): unknown => {
+  if (Array.isArray(result) && result.length === 2 && Array.isArray(result[0])) {
+    return result[0];
+  }
+
+  if (result !== null && typeof result === "object" && "rows" in result) {
+    return result.rows;
+  }
+
+  return result;
 };

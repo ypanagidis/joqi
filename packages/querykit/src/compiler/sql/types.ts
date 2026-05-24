@@ -1,6 +1,6 @@
 import type { JsonValue } from "../../specs/query.js";
 
-export type SQLDialect = "mysql" | "postgres";
+export type SQLDialect = "mysql" | "postgres" | "sqlite";
 
 export type SQLPlan = {
   readonly dialect: SQLDialect;

@@ -1,7 +1,7 @@
 import type { Policy, RegistryDefaults } from "@ypanagidis/querykit";
 import { createPhysicalRegistryFromDrizzleRelations } from "@ypanagidis/querykit-drizzle";
 
-import { relations } from "./schema.ts";
+import { relations } from "./db/schema.ts";
 
 export const physical = createPhysicalRegistryFromDrizzleRelations(relations);
 
@@ -36,16 +36,8 @@ export const policy = {
       label: "Placement",
       defaultLimit: 25,
       fields: {
-        name: {
-          expose: true,
-          filterable: true,
-          sortable: true,
-        },
-        status: {
-          expose: true,
-          filterable: true,
-          sortable: true,
-        },
+        name: { expose: true, filterable: true, sortable: true },
+        status: { expose: true, filterable: true, sortable: true },
         budgetCents: {
           expose: true,
           exposeAs: "budget",
@@ -71,11 +63,7 @@ export const policy = {
       exposeAs: "campaign",
       label: "Campaign",
       fields: {
-        name: {
-          expose: true,
-          filterable: true,
-          sortable: true,
-        },
+        name: { expose: true, filterable: true, sortable: true },
       },
     },
   },
