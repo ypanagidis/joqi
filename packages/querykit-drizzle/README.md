@@ -1,14 +1,15 @@
 # QueryKit Drizzle
 
-Drizzle execution adapter for QueryKit SQL plans.
+Drizzle adapter for QueryKit physical registries and SQL plans.
 
-This package intentionally starts with the smallest useful adapter surface:
+This package intentionally keeps a small adapter surface:
 
 ```txt
+Drizzle schema + rc3 relations -> PhysicalRegistry
 SQLPlan -> Drizzle SQL object -> db.execute(...)
 ```
 
-It does not introspect Drizzle schemas yet, and it does not compile QueryKit queries into Drizzle query-builder calls. Core QueryKit already compiles `QuerySpec + ResolvedRegistry` into a MySQL `SQLPlan`; this package executes that plan through a Drizzle-compatible database object.
+It does not compile QueryKit queries into Drizzle query-builder calls. Core QueryKit already compiles `QuerySpec + ResolvedRegistry` into a MySQL `SQLPlan`; this package creates the trusted physical registry from Drizzle metadata and executes SQL plans through a Drizzle-compatible database object.
 
 ## Install
 
@@ -20,7 +21,22 @@ pnpm add @ypanagidis/querykit @ypanagidis/querykit-drizzle drizzle-orm@1.0.0-rc.
 
 ```ts
 import { compileQuerySpecToSQL } from "@ypanagidis/querykit";
-import { executeSQLPlanWithDrizzle } from "@ypanagidis/querykit-drizzle";
+import {
+  createPhysicalRegistryFromDrizzle,
+  executeSQLPlanWithDrizzle,
+} from "@ypanagidis/querykit-drizzle";
+
+const physical = createPhysicalRegistryFromDrizzle({
+  schema,
+  relations: (r) => ({
+    placements: {
+      campaign: r.one.campaigns({
+        from: r.placements.campaignId,
+        to: r.campaigns.id,
+      }),
+    },
+  }),
+});
 
 const sqlPlan = compileQuerySpecToSQL({
   query,
@@ -51,6 +67,8 @@ type ExecuteSQLPlanWithDrizzleInput<TResult = unknown> = {
 ```ts
 sqlPlanToDrizzleSQL(plan);
 executeSQLPlanWithDrizzle({ db, plan });
+createPhysicalRegistryFromDrizzle({ schema, relations });
+createPhysicalRegistryFromDrizzleRelations(relations);
 ```
 
 ## Current Scope
@@ -61,9 +79,9 @@ Implemented:
 - Preserve bound params
 - Execute through `db.execute(...)`
 - Wrap execution failures in `DrizzleExecutionError`
+- Create a QueryKit `PhysicalRegistry` from Drizzle rc3 `defineRelations(...)` metadata
 
 Not implemented yet:
 
-- Drizzle schema introspection into `PhysicalRegistry`
 - Drizzle query-builder compilation
 - Drizzle-specific row normalization

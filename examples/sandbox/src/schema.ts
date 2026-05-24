@@ -1,3 +1,4 @@
+import { defineRelations } from "drizzle-orm/relations";
 import { int, mysqlEnum, mysqlTable, varchar } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
@@ -23,3 +24,24 @@ export const placements = mysqlTable("placements", {
     .notNull()
     .references(() => campaigns.id),
 });
+
+export const schema = {
+  users,
+  campaigns,
+  placements,
+};
+
+export const relations = defineRelations(schema, (r) => ({
+  placements: {
+    campaign: r.one.campaigns({
+      from: r.placements.campaignId,
+      to: r.campaigns.id,
+    }),
+  },
+  campaigns: {
+    owner: r.one.users({
+      from: r.campaigns.ownerUserId,
+      to: r.users.id,
+    }),
+  },
+}));

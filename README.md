@@ -74,12 +74,11 @@ Currently implemented:
 - Derived join planning from public dotted field paths
 - Adapter-neutral `QueryIR`
 - MySQL `SQLPlan` compilation with bound params
-- Runnable sandbox example
+- Drizzle adapter package for registry creation and SQLPlan execution
+- Docker-backed sandbox example
 
 Not implemented yet:
 
-- Database execution adapters
-- Drizzle adapter package
 - Prisma adapter package
 - PostgreSQL and SQLite SQL dialects
 - Aggregation execution semantics
@@ -550,7 +549,7 @@ Safety rules:
 - `contains`, `startsWith`, and `endsWith` escape MySQL `LIKE` wildcards in user input.
 - Relation joins use physical join keys from `ResolvedRelation`.
 
-The `SQLPlan` is not executed by core QueryKit yet. A future adapter can execute it through raw SQL APIs, for example Drizzle, Prisma, Kysely, or a direct MySQL client.
+The `SQLPlan` is not executed by core QueryKit. Adapter packages execute it through raw SQL APIs, for example Drizzle, Prisma, Kysely, or a direct MySQL client.
 
 ## Running The Sandbox
 
@@ -559,10 +558,13 @@ The sandbox is the best way to see the current pipeline.
 ```bash
 pnpm install
 pnpm build
+pnpm --filter @querykit/example-sandbox db:up
+pnpm --filter @querykit/example-sandbox db:push
+pnpm --filter @querykit/example-sandbox seed
 pnpm --filter @querykit/example-sandbox start
 ```
 
-It reads `examples/sandbox/input.json`, then prints a MySQL SQL plan. The sample includes `campaign.name`, which causes QueryKit to validate the relation and derive a join plan.
+It reads the public query from `examples/sandbox/input.json`, builds the physical registry from the Drizzle schema in `examples/sandbox/src/schema.ts`, then prints joins, the MySQL SQL plan, and validated rows. The sample includes `campaign.name`, which causes QueryKit to validate the relation and derive a join plan.
 
 Expected shape:
 
@@ -641,8 +643,7 @@ Near-term:
 
 Later:
 
-- ORM/schema introspection into `PhysicalRegistry`
-- Drizzle schema introspection into `PhysicalRegistry`
+- More ORM/schema registry generators
 - Builder manifest output for UI field pickers
 - Aggregation semantics
 - Row normalization helpers

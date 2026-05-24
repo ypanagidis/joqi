@@ -1,7 +1,11 @@
 # QueryKit Sandbox
 
-Runs the registry resolver, query validator, IR lowerer, MySQL SQL compiler, and
-Drizzle execution adapter against `input.json`.
+Runs Drizzle schema-to-registry creation, the registry resolver, query validator,
+IR lowerer, MySQL SQL compiler, Drizzle execution adapter, and result validation
+against `input.json`.
+
+`input.json` contains only the public query. The physical registry and policy live
+in TypeScript under `src/`.
 
 The sample query selects and filters `campaign.name`, so the output includes a
 top-level `joins` field plus `sqlPlan.sql` and `sqlPlan.params`.

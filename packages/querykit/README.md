@@ -338,7 +338,7 @@ Drizzle schema -> PhysicalRegistry
 SQLPlan -> db.execute(...)
 ```
 
-The initial Drizzle execution adapter lives in `@ypanagidis/querykit-drizzle`, not core QueryKit. Core stays ORM-agnostic and produces `SQLPlan`; adapter packages execute or translate that plan.
+The Drizzle adapter lives in `@ypanagidis/querykit-drizzle`, not core QueryKit. It can create a `PhysicalRegistry` from Drizzle rc3 relation metadata and execute `SQLPlan` through `db.execute(...)`. Core stays ORM-agnostic and produces `SQLPlan`; adapter packages execute or translate that plan.
 
 For Prisma:
 
@@ -351,16 +351,14 @@ Prisma object-query compilation can be added later for the subset Prisma can rep
 
 ## Current Alpha
 
-The current alpha exposes the public Zod schema layer for `QuerySpec`, `PhysicalRegistry`, `RegistryPolicy`, `RegistryDefaults`, and `ResolvedRegistry`.
-
-The next implementation should build the runtime pipeline around these contracts:
+The current alpha exposes the public Zod schema layer for `QuerySpec`, `PhysicalRegistry`, `RegistryPolicy`, `RegistryDefaults`, and `ResolvedRegistry`, plus the runtime pipeline around these contracts:
 
 ```txt
 QuerySpecSchema.parse
   -> resolveRegistry
   -> validateQuerySpec
   -> lowerQuerySpecToIR
-  -> adapter.compile
+  -> compileQuerySpecToSQL
   -> adapter.execute
 ```
 

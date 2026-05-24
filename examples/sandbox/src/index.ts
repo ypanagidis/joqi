@@ -10,12 +10,14 @@ import {
 import { executeSQLPlanWithDrizzle } from "@ypanagidis/querykit-drizzle";
 import { drizzle } from "drizzle-orm/mysql2";
 
-const input = JSON.parse(await readFile(new URL("./input.json", import.meta.url), "utf8"));
+import { defaults, physical, policy } from "./registry.ts";
+
+const input = JSON.parse(await readFile(new URL("../input.json", import.meta.url), "utf8"));
 
 const resolved = resolveRegistry({
-  physical: input.physical,
-  defaults: input.defaults,
-  policies: input.policies,
+  physical,
+  defaults,
+  policy,
 });
 
 const validatedQuery = validateQuerySpec({
@@ -44,12 +46,9 @@ await db.$client.end();
 console.log(
   JSON.stringify(
     {
-      // resolved,
-      // validatedQuery,
       joins: ir.joins,
       sqlPlan,
       rows: validatedRows,
-      // ir,
     },
     null,
     2,

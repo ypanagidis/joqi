@@ -6,8 +6,8 @@
     "db:down": "docker compose down",
     "db:push": "drizzle-kit push",
     "db:up": "docker compose up -d --wait mysql",
-    "seed": "node --experimental-strip-types seed.ts",
-    "start": "node --experimental-strip-types index.ts"
+    "seed": "node --experimental-strip-types src/seed.ts",
+    "start": "node --experimental-strip-types src/index.ts"
   },
   "dependencies": {
     "@ypanagidis/querykit": "workspace:*",
