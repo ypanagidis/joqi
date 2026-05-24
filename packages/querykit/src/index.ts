@@ -129,3 +129,11 @@ export type {
   CompileQuerySpecToSQLInput,
   SQLPlan,
 } from "./compile-sql.js";
+
+export {
+  buildQueryIRResultSchema,
+  buildQueryIRRowSchema,
+  parseQueryIRResultRows,
+  safeParseQueryIRResultRows,
+} from "./result-schema.js";
+export type { QueryResultRow, QueryResultRows } from "./result-schema.js";

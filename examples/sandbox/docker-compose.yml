@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: querykit
+      MYSQL_DATABASE: querykit_sandbox
+      MYSQL_USER: querykit
+      MYSQL_PASSWORD: querykit
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "querykit", "-pquerykit"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - querykit-sandbox-mysql:/var/lib/mysql
+
+volumes:
+  querykit-sandbox-mysql:

@@ -634,7 +634,6 @@ The host application still owns business authorization, tenant constraints, row-
 
 Near-term:
 
-- Add a Drizzle raw SQL execution adapter
 - Add a Prisma raw SQL execution adapter
 - Decide how mandatory host constraints are represented
 - Add PostgreSQL and SQLite SQL dialects
@@ -643,6 +642,7 @@ Near-term:
 Later:
 
 - ORM/schema introspection into `PhysicalRegistry`
+- Drizzle schema introspection into `PhysicalRegistry`
 - Builder manifest output for UI field pickers
 - Aggregation semantics
 - Row normalization helpers

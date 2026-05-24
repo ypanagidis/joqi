@@ -37,7 +37,7 @@ describe("compileQuerySpecToSQL", () => {
         "select `t0`.`name` as `name`, `t0`.`budgetCents` as `budget`, `t1`.`name` as `campaign.name`",
         "from `placements` as `t0`",
         "left join `campaigns` as `t1` on `t0`.`campaignId` = `t1`.`id`",
-        "where (`t0`.`budgetCents` >= ?) and (`t1`.`name` like ? escape '\\')",
+        "where (`t0`.`budgetCents` >= ?) and (`t1`.`name` like ? escape '\\\\')",
         "order by `t0`.`budgetCents` desc, `t1`.`name` asc",
         "limit ?",
         "offset ?",
@@ -67,7 +67,7 @@ describe("compileQuerySpecToSQL", () => {
       [
         "select `t0`.`name` as `name`",
         "from `placements` as `t0`",
-        "where (`t0`.`name` like ? escape '\\') or (`t0`.`status` in (?, ?)) or (`t0`.`status` is not null)",
+        "where (`t0`.`name` like ? escape '\\\\') or (`t0`.`status` in (?, ?)) or (`t0`.`status` is not null)",
       ].join("\n"),
     );
     expect(plan.params).toEqual(["spring%", "active", "paused"]);
@@ -88,7 +88,7 @@ describe("compileQuerySpecToSQL", () => {
       [
         "select `t0`.`name` as `name`",
         "from `placements` as `t0`",
-        "where `t0`.`name` like ? escape '\\'",
+        "where `t0`.`name` like ? escape '\\\\'",
       ].join("\n"),
     );
     expect(plan.params).toEqual(["%100\\%\\_ready%"]);

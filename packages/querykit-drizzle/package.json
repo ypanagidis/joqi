@@ -1,0 +1,31 @@
+{
+  "name": "@ypanagidis/querykit-drizzle",
+  "version": "0.0.2-alpha.0",
+  "description": "Drizzle execution adapter for QueryKit SQL plans.",
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "tag": "alpha"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsgo --noEmit"
+  },
+  "dependencies": {
+    "@ypanagidis/querykit": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.3"
+  }
+}

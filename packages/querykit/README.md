@@ -328,15 +328,17 @@ Adapters have two jobs:
 
 ```txt
 ORM/schema -> PhysicalRegistry
-QueryIR -> adapter executable
+SQLPlan -> adapter execution
 ```
 
 For Drizzle:
 
 ```txt
 Drizzle schema -> PhysicalRegistry
-QueryIR -> Drizzle SQL
+SQLPlan -> db.execute(...)
 ```
+
+The initial Drizzle execution adapter lives in `@ypanagidis/querykit-drizzle`, not core QueryKit. Core stays ORM-agnostic and produces `SQLPlan`; adapter packages execute or translate that plan.
 
 For Prisma:
 

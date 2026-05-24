@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter @ypanagidis/querykit build",
+    "build": "pnpm --filter './packages/*' build",
     "dev": "pnpm --filter @ypanagidis/querykit dev",
     "format": "oxfmt -c oxfmt.config.ts 'apps/**/*.ts' 'examples/**/*.ts' 'packages/**/*.ts' '*.json' '*.ts' '*.yaml' 'apps/**/*.json' 'examples/**/*.json' 'packages/**/*.json'",
     "format:check": "oxfmt -c oxfmt.config.ts --check 'apps/**/*.ts' 'examples/**/*.ts' 'packages/**/*.ts' '*.json' '*.ts' '*.yaml' 'apps/**/*.json' 'examples/**/*.json' 'packages/**/*.json'",
@@ -16,8 +16,8 @@
     "prepare": "effect-language-service patch",
     "publish:alpha": "pnpm --filter @ypanagidis/querykit publish --tag alpha",
     "publish:latest": "pnpm --filter @ypanagidis/querykit publish --tag latest",
-    "test": "pnpm --filter @ypanagidis/querykit test",
-    "typecheck": "pnpm --filter @ypanagidis/querykit typecheck"
+    "test": "pnpm --filter './packages/*' test",
+    "typecheck": "pnpm --filter @ypanagidis/querykit build && pnpm --filter './packages/*' typecheck"
   },
   "devDependencies": {
     "@effect/language-service": "^0.86.2",

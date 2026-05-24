@@ -1,0 +1,12 @@
+import { defineConfig } from "tsdown";
+
+export default defineConfig({
+  entry: {
+    index: "src/index.ts",
+  },
+  dts: true,
+  format: ["esm"],
+  sourcemap: true,
+  clean: true,
+  external: ["@ypanagidis/querykit", "drizzle-orm"],
+});

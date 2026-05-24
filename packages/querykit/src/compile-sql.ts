@@ -159,17 +159,17 @@ const compilePredicate = (
       return `${fieldRef} like ${addParam(
         context,
         `%${escapeLikePattern(stringValue(value))}%`,
-      )} escape '\\'`;
+      )} escape '\\\\'`;
     case "startsWith":
       return `${fieldRef} like ${addParam(
         context,
         `${escapeLikePattern(stringValue(value))}%`,
-      )} escape '\\'`;
+      )} escape '\\\\'`;
     case "endsWith":
       return `${fieldRef} like ${addParam(
         context,
         `%${escapeLikePattern(stringValue(value))}`,
-      )} escape '\\'`;
+      )} escape '\\\\'`;
     case "isNull":
       return `${fieldRef} is null`;
     case "isNotNull":
